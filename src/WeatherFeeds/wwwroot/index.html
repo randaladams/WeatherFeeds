@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WeatherFeeds – Memphis DMA</title>
+<link rel="icon" href="icon.png">
 <style>
 /* ---------- Theme tokens: light default, dark via OS (auto) or explicit choice ---------- */
 :root{
@@ -38,6 +39,7 @@ header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:
 header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.3px}
 header h1 small{color:var(--muted);font-weight:400;margin-left:8px;font-size:13px}
 .spacer{flex:1}
+.logo{width:26px;height:26px;vertical-align:-7px;margin-right:8px}
 .clock{font-variant-numeric:tabular-nums;color:var(--muted)}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
@@ -123,12 +125,13 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
 </head>
 <body>
 <header>
-  <h1>WeatherFeeds <small>Memphis DMA · 27 counties · NWS api.weather.gov</small></h1>
+  <h1><img src="icon.png" alt="" class="logo">WeatherFeeds <small>Memphis DMA · 27 counties · NWS api.weather.gov</small></h1>
   <span class="spacer"></span>
   <button class="btn" id="openRadar">📡 Radar</button>
   <button class="btn" id="refreshAll">⟳ Refresh all</button>
   <button class="btn" id="openSettings">⚙ Settings</button>
   <span class="clock" id="clock"></span>
+  <button class="btn app-only" id="exitApp" title="Exit WeatherFeeds">⏻ Exit</button>
 </header>
 <div id="soundBanner">🔇 The browser is blocking alert sounds. Click here to enable them.</div>
 <main id="main"></main>
@@ -166,6 +169,8 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
       <span class="seg" id="themeSeg"><button data-theme="auto">Auto</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button></span></div>
     <div class="hint">Auto follows the Windows light/dark setting.</div>
     <div class="row app-only"><label><input type="checkbox" id="topmost"> Keep window on top of other windows</label></div>
+    <div class="row app-only"><label><input type="checkbox" id="minToTray"> Minimize to the system tray instead of the taskbar</label></div>
+    <div class="hint">Right-click (or the mouse's back button) goes back to the dashboard.</div>
 
     <h3>Refresh</h3>
     <div class="row"><label for="stateInt">State panels</label>
@@ -179,6 +184,8 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <div class="row"><label><input type="checkbox" id="incModerate"> Count Moderate alerts as high</label></div>
     <div class="row"><label><input type="checkbox" id="sound"> Play a sound for new high alerts</label></div>
     <div class="row"><label for="volume">Volume</label><input type="range" id="volume" min="0" max="1" step="0.05" style="flex:1"></div>
+    <div class="row app-only"><label><input type="checkbox" id="popups"> Show a Windows popup for new high alerts</label>
+      <button class="btn" id="testPopup">▶ Test popup</button></div>
     <div class="row"><label><input type="checkbox" id="repeatExtreme"> Repeat Extreme alerts every 30s until acknowledged</label></div>
     <div class="row"><button class="btn" data-test="Extreme">▶ Test Extreme</button><button class="btn" data-test="Severe">▶ Test Severe</button><button class="btn" data-test="Moderate">▶ Test Moderate</button></div>
     <div class="hint">The sounds are made up in code and are deliberately not the EAS two-tone signal, so a speaker that leaks onto air won't cause an FCC problem.</div>
@@ -244,7 +251,7 @@ const store = {
 };
 const DEFAULTS = {stateInt:15, alertInt:5, radarInt:5, incModerate:false, theme:'auto',
   sound:true, volume:0.6, repeatExtreme:true, appId:'WeatherFeeds/1.0', contact:'', apiKey:'',
-  radarSite:'KNQA', radarMode:'loop', topmost:false};
+  radarSite:'KNQA', radarMode:'loop', topmost:false, minToTray:false, popups:true};
 
 // ---------- Windows app bridge (WebView2). In a normal browser these are no-ops. ----------
 const HOST = window.chrome?.webview;
@@ -252,6 +259,11 @@ const IS_APP = !!HOST;
 const postHost = (type, value) => { try{ HOST && HOST.postMessage({type, value}); }catch{} };
 const prefs = Object.assign({}, DEFAULTS, store.get('wf.prefs.v1', {}));
 const savePrefs = ()=>store.set('wf.prefs.v1', prefs);
+// The Windows app passes its saved User-Agent in; recover the contact email from it if page storage was reset.
+if (!prefs.contact && window.WF_HOST?.userAgent){
+  const m = String(window.WF_HOST.userAgent).match(/^(.*?) \(([^()]*@[^()]*)\)$/);
+  if (m){ prefs.appId = m[1]; prefs.contact = m[2]; savePrefs(); }
+}
 let meta = store.get('wf.meta.v1', {});
 const acked = new Set(store.get('wf.acked.v1', []));
 const saveAcked = ()=>store.set('wf.acked.v1', [...acked].slice(-300));
@@ -354,6 +366,14 @@ function processNewAlerts(){
   const fresh = alerts.filter(a=>isHigh(a) && !acked.has(a.id) && !announced.has(a.id));
   fresh.forEach(a=>announced.add(a.id));
   if (fresh.length){ playAlertSound(fresh[0].severity); lastRepeat = Date.now(); }   // alerts are sorted most severe first
+  if (fresh.length && prefs.popups) postHost('notify', alertPopup(fresh));
+}
+const areaList = a => a.dma.map(f=>`${BY_FIPS[f].name} ${BY_FIPS[f].st}`).join(', ');
+function alertPopup(list){
+  const a = list[0];
+  if (list.length === 1)
+    return {title:`${a.severity}: ${a.event}`, body:`${areaList(a)}\nUntil ${fmtTime(a.ends||a.expires)}`, severity:a.severity};
+  return {title:`${list.length} new high alerts`, body:list.map(x=>`${x.event} – ${areaList(x)}`).join('\n'), severity:a.severity};
 }
 
 // ---------- Data loading ----------
@@ -546,7 +566,20 @@ document.addEventListener('click', e=>{
   const th = t.closest('[data-theme]'); if (th){ prefs.theme = th.dataset.theme; savePrefs(); applyTheme(); return; }
   const ts = t.closest('[data-test]'); if (ts){ playAlertSound(ts.dataset.test, true); return; }
 });
-document.addEventListener('keydown', e=>{ if (e.key==='Escape'){ document.body.classList.contains('settings-open') ? document.body.classList.remove('settings-open') : showScreen(null); } });
+// Escape, right-click and the mouse back button all go back one level: settings drawer, then full screen.
+function goBack(){
+  if (document.body.classList.contains('settings-open')) document.body.classList.remove('settings-open');
+  else if (screen) showScreen(null);
+}
+document.addEventListener('keydown', e=>{ if (e.key==='Escape') goBack(); });
+document.addEventListener('contextmenu', e=>{
+  if (e.target.closest('input, textarea, select')) return;   // keep copy/paste menus in text fields
+  e.preventDefault(); goBack();
+});
+document.addEventListener('mouseup', e=>{ if (e.button===3){ e.preventDefault(); goBack(); } });
+document.getElementById('exitApp').onclick = ()=>postHost('exit');
+document.getElementById('testPopup').onclick = ()=>postHost('notify', {title:'Test: Tornado Warning',
+  body:'This is a test popup from WeatherFeeds. No alert is in effect.', severity:'Extreme'});
 document.getElementById('openRadar').onclick = ()=>showScreen('radar');
 document.getElementById('dRefresh').onclick = ()=>refreshState(screen);
 document.getElementById('rRefresh').onclick = refreshRadar;
@@ -587,6 +620,8 @@ bind('appId','appId','text',showUA);
 bind('contact','contact','text',showUA);
 bind('apiKey','apiKey','text');
 bind('topmost','topmost','check',()=>postHost('topmost', prefs.topmost));
+bind('minToTray','minToTray','check',()=>postHost('tray', prefs.minToTray));
+bind('popups','popups','check');
 
 // ---------- Scheduling ----------
 setInterval(()=>{
@@ -604,6 +639,7 @@ if (IS_APP){
   document.body.classList.add('is-app');
   audio();                               // the app allows sound without a click
   postHost('topmost', prefs.topmost);
+  postHost('tray', prefs.minToTray);
   if (!prefs.contact) document.body.classList.add('settings-open');   // first run: ask for the NWS contact email
 }
 applyTheme(); showUA(); updateSoundBanner();

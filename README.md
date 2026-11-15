@@ -20,6 +20,13 @@ A Windows 10/11 weather dashboard for the **Memphis DMA** (27 counties in Tennes
 - **Data age and refresh:** every panel shows when it was fetched, how old the forecast or feed is, and a countdown to the next refresh, with a manual ⟳ button.
   - Default refresh is 15 minutes for the state panels, 5 for alerts and 5 for radar. All are adjustable.
 - **Appearance:** Auto (follows the Windows light/dark setting), Light or Dark. There is also an option to keep the window on top.
+- **System tray:** the tray icon is always present while the app runs.
+  - Click it to open the window.
+  - Right-click it for Open and Exit.
+  - An optional setting sends the window to the tray instead of the taskbar when you minimize it.
+- **Alert popups:** each new high alert shows a Windows notification as well as playing its sound. Click the notification to open the dashboard. You can turn popups off in Settings, and there's a Test popup button.
+- **Navigation:** right-click, Esc or the mouse back button goes back one level: from Settings, from a county screen or from the radar screen.
+- **Exit:** the ⏻ Exit button, the window's ✕ and the tray's Exit all ask for confirmation first.
 
 ## NWS compliance
 
@@ -41,12 +48,22 @@ NWS asks every app to send a `User-Agent` header that names the app and gives a 
 .\publish.ps1 -SelfContained  # -> larger exe that runs without .NET installed
 ```
 
-The output is a single `WeatherFeeds.exe`. The dashboard page is embedded in it.
+The output is a single `WeatherFeeds.exe`. The dashboard page and icon are embedded in it, and the page is served from memory at `https://weatherfeeds.example/`. Nothing is unpacked to disk.
+
+### Icon
+
+`src/WeatherFeeds/Assets/WeatherFeeds.ico` holds sizes from 256 down to 16 px. It was cut from the master artwork by `Assets/make_icon.py`:
+
+```powershell
+python src/WeatherFeeds/Assets/make_icon.py <master.png> src/WeatherFeeds/Assets
+```
+
+That command also writes `icon-256.png`. Copy it to `wwwroot/icon.png`, which the dashboard header uses.
 
 ## Where data is stored
 
 Everything lives in `%LOCALAPPDATA%\WeatherFeeds\`:
-- `settings.json`: the window size and position, always-on-top, and the User-Agent.
+- `settings.json`: the window size and position, always-on-top, minimize-to-tray, and the User-Agent.
 - `WebView2\`: your dashboard preferences, cached NWS grid lookups and which alerts you've acknowledged.
 
 ## Developing the dashboard UI
@@ -61,7 +78,9 @@ Then open http://localhost:8765/. Add `?demo` to the address to inject sample al
 
 A browser can't set the User-Agent header, so only the Windows app is fully NWS-compliant.
 
-Run `WeatherFeeds.exe --selftest report.json` to load live data, write a short JSON report and exit.
+Command-line options:
+- `WeatherFeeds.exe --demo` adds sample `[DEMO]` alerts, so you can try the alert panel, sounds and popups.
+- `WeatherFeeds.exe --selftest report.json` loads live data, writes a short JSON report and exits. You can combine it with `--demo`.
 
 ## Counties
 
