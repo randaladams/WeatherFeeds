@@ -90,13 +90,22 @@ Without a collector, history only builds while someone has the app open. Gaps of
    - Run `.\publish.ps1`, then copy `WeatherFeeds.exe` and the deploy files to the share, for example `\\server\WeatherFeeds\`.
    - Copy `WeatherFeeds.shared.sample.json` to `WeatherFeeds.shared.json` and fill in `contactEmail`. NWS requires a contact in every request.
    - Change `historyFolder` if the default `history` folder next to the exe isn't where you want the data.
-2. **Schedule the collector.** On the server, as an administrator, run:
+2. **Schedule the collector.** On the server, in an elevated PowerShell, run the installer with the share's **local** path:
 
    ```powershell
-   .\install-collector.ps1 -ExePath \\server\WeatherFeeds\WeatherFeeds.exe -EveryMinutes 30
+   .\install-collector.ps1 -ExePath D:\Shares\WeatherFeeds\WeatherFeeds.exe
    ```
 
-   This registers a scheduled task that runs `WeatherFeeds.exe --collect` every 30 minutes, whether or not anyone is logged on. It runs under the Windows account you enter, which needs write access to the history folder.
+   This registers a scheduled task that runs `WeatherFeeds.exe --collect` every 30 minutes, whether or not anyone is logged on. By default it runs as the built-in **NETWORK SERVICE** account:
+   - It needs no password, so it never breaks when a password changes.
+   - The installer grants it Modify on the history folder only.
+
+   Other options:
+   - `-Account System` runs it as the built-in SYSTEM account. Only use this if non-administrators can't change the WeatherFeeds folder, because SYSTEM has full control of the server.
+   - `-Account User` runs it as a Windows account you enter. You need this if the history folder is on a different machine.
+   - `-EveryMinutes 15` changes how often it runs.
+
+   Keep `historyFolder` relative (`history`). The collector then writes through the local path, and users read the same folder through the share.
 3. **Point users at the share.** Users start `WeatherFeeds.exe` from the share, or a shortcut to it.
    - Each copy reads the shared history and never writes to it, so the share only ever has one writer.
    - Each copy also keeps its own local history as a fallback.
