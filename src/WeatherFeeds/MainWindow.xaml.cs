@@ -25,6 +25,15 @@ public partial class MainWindow : Window
 
     readonly HostSettings settings = HostSettings.Load(SettingsPath);
     readonly HistoryStore history = new(Path.Combine(DataDir, "history"));
+    // Central share (WeatherFeeds.shared.json next to the exe): read-only here; only --collect writes to it.
+    readonly SharedConfig? shared = LoadSharedConfig();
+    HistoryStore? SharedHistory => shared?.HistoryFolderFull is string f ? new HistoryStore(f) : null;
+
+    static SharedConfig? LoadSharedConfig()
+    {
+        try { return SharedConfig.Load(); }
+        catch { return null; }   // a broken shared file must not stop the dashboard
+    }
     readonly string? selfTestOut;
     readonly bool demo;
     readonly HashSet<string> wireUserAgents = [];
@@ -49,6 +58,9 @@ public partial class MainWindow : Window
         demo = args.Contains("--demo");
 
         Title = $"WeatherFeeds {Version} – Memphis DMA";
+        // On a station install, the shared config supplies the NWS contact so each user isn't asked for one.
+        if (settings.UserAgent == HostSettings.DefaultUserAgent && shared?.ContactEmail?.Contains('@') == true)
+            settings.UserAgent = HostSettings.SanitizeUserAgent($"WeatherFeeds/{Version} ({shared.ContactEmail.Trim()})");
         RestoreWindowPlacement();
         Topmost = settings.Topmost;
         CreateTrayIcon();
@@ -172,7 +184,7 @@ public partial class MainWindow : Window
                     break;
                 case "histLoad":
                     Web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(
-                        new { type = "histData", data = history.LoadAll(settings.HistoryDays) }));
+                        new { type = "histData", data = LoadHistory(out var sharedInfo), shared = sharedInfo }));
                     break;
                 case "histRetention":
                     settings.HistoryDays = Math.Clamp(value.GetInt32(), 1, 3650);
@@ -186,6 +198,27 @@ public partial class MainWindow : Window
             }
         }
         catch { /* ignore malformed messages */ }
+    }
+
+    /// <summary>Local history plus, when configured, the shared folder's (rows are de-duplicated by the page).</summary>
+    Dictionary<string, List<double?[]>> LoadHistory(out object? sharedInfo)
+    {
+        var data = history.LoadAll(settings.HistoryDays);
+        sharedInfo = null;
+        if (SharedHistory is not HistoryStore store) return data;
+        try
+        {
+            foreach (var (sid, rows) in store.LoadAll(settings.HistoryDays, readOnly: true))
+                data[sid] = data.TryGetValue(sid, out var local) ? [.. local, .. rows] : rows;
+            var statusPath = Path.Combine(store.Directory, "collector-status.json");
+            sharedInfo = new
+            {
+                folder = store.Directory,
+                status = File.Exists(statusPath) ? JsonDocument.Parse(File.ReadAllText(statusPath)).RootElement : (JsonElement?)null,
+            };
+        }
+        catch (Exception ex) { sharedInfo = new { folder = store.Directory, error = ex.Message }; }
+        return data;
     }
 
     // ---------------------------------------------------------------- Tray
@@ -343,7 +376,8 @@ public partial class MainWindow : Window
             await Task.Delay(TimeSpan.FromSeconds(45));
             var page = await Web.CoreWebView2.ExecuteScriptAsync(
                 "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, version: document.querySelector('.ver').textContent," +
-                " about: document.getElementById('aboutVersion').textContent, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
+                " about: document.getElementById('aboutVersion').textContent, shared: histShared," +
+                " sharedText: document.getElementById('histSharedInfo').textContent, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
                 " errors: Object.values(data).filter(d => d.err).length, alerts: alerts.length, alertErr: alertMeta.err," +
                 " audio: actx ? actx.state : 'none', banner: document.getElementById('soundBanner').className," +
                 " grids: Object.values(data).filter(d => d.grid).length, historyStations: Object.keys(hist).length," +

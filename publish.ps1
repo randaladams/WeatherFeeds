@@ -16,4 +16,6 @@ dotnet publish "$PSScriptRoot\src\WeatherFeeds\WeatherFeeds.csproj" `
   -o "$PSScriptRoot\publish"
 
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Central-share setup files go alongside the exe.
+Copy-Item "$PSScriptRoot\deploy\*" "$PSScriptRoot\publish\" -Force
 Write-Host "`nBuilt: $PSScriptRoot\publish\WeatherFeeds.exe" -ForegroundColor Green

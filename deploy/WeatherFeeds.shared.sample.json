@@ -1,0 +1,15 @@
+{
+  // Copy this next to WeatherFeeds.exe on the central share and rename it WeatherFeeds.shared.json.
+  // Every copy of the app started from that folder then reads the shared history,
+  // and "WeatherFeeds.exe --collect" writes to it.
+
+  // Where station history is kept: relative to this file, or a full path such as \\server\WeatherFeeds\history
+  "historyFolder": "history",
+
+  // Contact email for the NWS User-Agent (NWS requires one). Used by the collector, and by any
+  // copy of the app whose user hasn't entered their own in Settings.
+  "contactEmail": "weather-team@example.com",
+
+  // How many days of history the collector keeps.
+  "collectorRetentionDays": 400
+}

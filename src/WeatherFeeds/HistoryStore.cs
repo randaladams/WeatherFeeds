@@ -21,36 +21,66 @@ public sealed partial class HistoryStore(string directory)
     [GeneratedRegex("^[A-Z0-9]{3,8}$")]
     private static partial Regex StationId();
 
-    /// <summary>Merges rows ([epochMs, v1..v6]) into the station's file, dropping anything older than the retention window.</summary>
+    public static bool IsStationId(string? s) => s != null && StationId().IsMatch(s);
+
+    /// <summary>Merges rows ([epochMs, v1..v6]) from the page into the station's file.</summary>
     public void Append(string? station, JsonElement rows, int retentionDays)
     {
-        if (station == null || !StationId().IsMatch(station) || rows.ValueKind != JsonValueKind.Array) return;
-        var path = PathFor(station);
-        var map = Read(path);
+        if (rows.ValueKind != JsonValueKind.Array) return;
+        var parsed = new List<KeyValuePair<long, double?[]>>();
         foreach (var row in rows.EnumerateArray())
         {
             if (row.ValueKind != JsonValueKind.Array || row.GetArrayLength() < 2) continue;
-            var t = row[0].GetInt64();
             var vals = new double?[Columns];
             for (int i = 0; i < Columns && i + 1 < row.GetArrayLength(); i++)
                 vals[i] = row[i + 1].ValueKind == JsonValueKind.Number ? row[i + 1].GetDouble() : null;
+            parsed.Add(new(row[0].GetInt64(), vals));
+        }
+        Append(station, parsed, retentionDays);
+    }
+
+    /// <summary>Merges rows into the station's file, dropping anything older than the retention window. Returns rows added.</summary>
+    public int Append(string? station, IEnumerable<KeyValuePair<long, double?[]>> rows, int retentionDays)
+    {
+        if (!IsStationId(station)) return 0;
+        var path = PathFor(station!);
+        var map = Read(path);
+        int added = 0;
+        foreach (var (t, vals) in rows)
+        {
+            if (!map.ContainsKey(t)) added++;
             map[t] = vals;
         }
         Trim(map, retentionDays);
         Write(path, map);
+        return added;
     }
 
-    /// <summary>All stations' rows within the retention window, as {station: [[epochMs, v1..v6], ...]}.</summary>
-    public Dictionary<string, List<double?[]>> LoadAll(int retentionDays)
+    /// <summary>First and last saved reading times for a station (epoch ms), or null if none.</summary>
+    public (long First, long Last)? Range(string station)
+    {
+        var map = Read(PathFor(station));
+        return map.Count == 0 ? null : (map.Keys.First(), map.Keys.Last());
+    }
+
+    public IEnumerable<string> Stations() => System.IO.Directory.Exists(Directory)
+        ? System.IO.Directory.GetFiles(Directory, "*.csv").Select(p => Path.GetFileNameWithoutExtension(p)).Where(IsStationId)
+        : [];
+
+    /// <summary>
+    /// All stations' rows within the retention window, as {station: [[epochMs, v1..v6], ...]}.
+    /// readOnly: never rewrite files (used for the shared folder, which only the collector writes).
+    /// </summary>
+    public Dictionary<string, List<double?[]>> LoadAll(int retentionDays, bool readOnly = false)
     {
         var result = new Dictionary<string, List<double?[]>>();
-        if (!System.IO.Directory.Exists(Directory)) return result;
-        foreach (var path in System.IO.Directory.GetFiles(Directory, "*.csv"))
+        foreach (var station in Stations())
         {
-            var station = Path.GetFileNameWithoutExtension(path);
-            if (!StationId().IsMatch(station)) continue;
-            var map = Read(path);
-            if (Trim(map, retentionDays)) Write(path, map);
+            var path = PathFor(station);
+            SortedDictionary<long, double?[]> map;
+            try { map = Read(path); }
+            catch (IOException) { continue; }            // being replaced by the collector right now; next load gets it
+            if (Trim(map, retentionDays) && !readOnly) Write(path, map);
             result[station] = map.Select(kv => new double?[] { kv.Key }.Concat(kv.Value).ToArray()).ToList();
         }
         return result;
@@ -59,9 +89,9 @@ public sealed partial class HistoryStore(string directory)
     /// <summary>Applies a new retention window to every file.</summary>
     public void TrimAll(int retentionDays)
     {
-        if (!System.IO.Directory.Exists(Directory)) return;
-        foreach (var path in System.IO.Directory.GetFiles(Directory, "*.csv"))
+        foreach (var station in Stations())
         {
+            var path = PathFor(station);
             var map = Read(path);
             if (Trim(map, retentionDays)) Write(path, map);
         }

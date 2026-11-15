@@ -1,0 +1,31 @@
+// Memphis DMA counties. Used by the dashboard and by WeatherFeeds.exe --collect, which reads the JSON after the '='.
+// lat/lon is the county seat: it picks the NWS forecast grid and the nearest weather stations.
+const COUNTIES = [
+  {"st":"TN", "name":"Shelby", "fips":"047157", "seat":"Memphis", "lat":35.1495, "lon":-90.0490},
+  {"st":"TN", "name":"Fayette", "fips":"047047", "seat":"Somerville", "lat":35.2437, "lon":-89.3501},
+  {"st":"TN", "name":"Tipton", "fips":"047167", "seat":"Covington", "lat":35.5642, "lon":-89.6465},
+  {"st":"TN", "name":"Lauderdale", "fips":"047097", "seat":"Ripley", "lat":35.7454, "lon":-89.5298},
+  {"st":"TN", "name":"Haywood", "fips":"047075", "seat":"Brownsville", "lat":35.5939, "lon":-89.2623},
+  {"st":"TN", "name":"Crockett", "fips":"047033", "seat":"Alamo", "lat":35.7848, "lon":-89.1173},
+  {"st":"TN", "name":"Dyer", "fips":"047045", "seat":"Dyersburg", "lat":36.0345, "lon":-89.3856},
+  {"st":"TN", "name":"Hardeman", "fips":"047069", "seat":"Bolivar", "lat":35.2562, "lon":-88.9878},
+  {"st":"TN", "name":"McNairy", "fips":"047109", "seat":"Selmer", "lat":35.1701, "lon":-88.5923},
+  {"st":"AR", "name":"Crittenden", "fips":"005035", "seat":"Marion", "lat":35.2145, "lon":-90.1965},
+  {"st":"AR", "name":"Cross", "fips":"005037", "seat":"Wynne", "lat":35.2245, "lon":-90.7868},
+  {"st":"AR", "name":"Lee", "fips":"005077", "seat":"Marianna", "lat":34.7737, "lon":-90.7576},
+  {"st":"AR", "name":"Mississippi", "fips":"005093", "seat":"Blytheville", "lat":35.9273, "lon":-89.9190},
+  {"st":"AR", "name":"Phillips", "fips":"005107", "seat":"Helena-West Helena", "lat":34.5296, "lon":-90.5918},
+  {"st":"AR", "name":"Poinsett", "fips":"005111", "seat":"Harrisburg", "lat":35.5634, "lon":-90.7168},
+  {"st":"AR", "name":"St. Francis", "fips":"005123", "seat":"Forrest City", "lat":35.0081, "lon":-90.7898},
+  {"st":"MS", "name":"DeSoto", "fips":"028033", "seat":"Hernando", "lat":34.8240, "lon":-89.9937},
+  {"st":"MS", "name":"Marshall", "fips":"028093", "seat":"Holly Springs", "lat":34.7676, "lon":-89.4487},
+  {"st":"MS", "name":"Tate", "fips":"028137", "seat":"Senatobia", "lat":34.6176, "lon":-89.9687},
+  {"st":"MS", "name":"Tunica", "fips":"028143", "seat":"Tunica", "lat":34.6862, "lon":-90.3826},
+  {"st":"MS", "name":"Benton", "fips":"028009", "seat":"Ashland", "lat":34.8326, "lon":-89.1759},
+  {"st":"MS", "name":"Tippah", "fips":"028139", "seat":"Ripley", "lat":34.7298, "lon":-88.9509},
+  {"st":"MS", "name":"Alcorn", "fips":"028003", "seat":"Corinth", "lat":34.9343, "lon":-88.5223},
+  {"st":"MS", "name":"Panola", "fips":"028107", "seat":"Batesville", "lat":34.3115, "lon":-89.9440},
+  {"st":"MS", "name":"Lafayette", "fips":"028071", "seat":"Oxford", "lat":34.3665, "lon":-89.5192},
+  {"st":"MS", "name":"Coahoma", "fips":"028027", "seat":"Clarksdale", "lat":34.2001, "lon":-90.5709},
+  {"st":"MS", "name":"Quitman", "fips":"028119", "seat":"Marks", "lat":34.2568, "lon":-90.2723}
+];

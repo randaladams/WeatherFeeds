@@ -281,6 +281,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <div class="row"><label for="histDays">Keep readings for</label>
       <select id="histDays"><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option><option value="365">1 year</option></select></div>
     <div class="hint" id="histInfo"></div>
+    <div class="hint" id="histSharedInfo" style="display:none"></div>
     <div class="hint app-only">Saved as one CSV file per weather station in %LOCALAPPDATA%\WeatherFeeds\history. NWS only keeps about 7 days, so longer trends build up while the app runs.</div>
     <div class="row app-only"><button class="btn" id="openHistory">📂 Open history folder</button></div>
     <div class="hint web-only">The browser preview keeps only the last 3 days. The Windows app saves readings as CSV files.</div>
@@ -313,39 +314,11 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
   </div>
 </aside>
 
+<script src="counties.js"></script>
 <script>
 // ---------- Configuration ----------
 const STATES = {TN:'Tennessee', AR:'Arkansas', MS:'Mississippi'};
-const C = (st,name,fips,seat,lat,lon)=>({st,name,fips,seat,lat,lon});
-const COUNTIES = [
-  C('TN','Shelby','047157','Memphis',35.1495,-90.0490),
-  C('TN','Fayette','047047','Somerville',35.2437,-89.3501),
-  C('TN','Tipton','047167','Covington',35.5642,-89.6465),
-  C('TN','Lauderdale','047097','Ripley',35.7454,-89.5298),
-  C('TN','Haywood','047075','Brownsville',35.5939,-89.2623),
-  C('TN','Crockett','047033','Alamo',35.7848,-89.1173),
-  C('TN','Dyer','047045','Dyersburg',36.0345,-89.3856),
-  C('TN','Hardeman','047069','Bolivar',35.2562,-88.9878),
-  C('TN','McNairy','047109','Selmer',35.1701,-88.5923),
-  C('AR','Crittenden','005035','Marion',35.2145,-90.1965),
-  C('AR','Cross','005037','Wynne',35.2245,-90.7868),
-  C('AR','Lee','005077','Marianna',34.7737,-90.7576),
-  C('AR','Mississippi','005093','Blytheville',35.9273,-89.9190),
-  C('AR','Phillips','005107','Helena-West Helena',34.5296,-90.5918),
-  C('AR','Poinsett','005111','Harrisburg',35.5634,-90.7168),
-  C('AR','St. Francis','005123','Forrest City',35.0081,-90.7898),
-  C('MS','DeSoto','028033','Hernando',34.8240,-89.9937),
-  C('MS','Marshall','028093','Holly Springs',34.7676,-89.4487),
-  C('MS','Tate','028137','Senatobia',34.6176,-89.9687),
-  C('MS','Tunica','028143','Tunica',34.6862,-90.3826),
-  C('MS','Benton','028009','Ashland',34.8326,-89.1759),
-  C('MS','Tippah','028139','Ripley',34.7298,-88.9509),
-  C('MS','Alcorn','028003','Corinth',34.9343,-88.5223),
-  C('MS','Panola','028107','Batesville',34.3115,-89.9440),
-  C('MS','Lafayette','028071','Oxford',34.3665,-89.5192),
-  C('MS','Coahoma','028027','Clarksdale',34.2001,-90.5709),
-  C('MS','Quitman','028119','Marks',34.2568,-90.2723),
-];
+// COUNTIES comes from counties.js (loaded just before this script).
 const RADAR_SITES = [
   ['KNQA','Memphis'],['KGWX','Columbus MS'],['KLZK','Little Rock'],['KPAH','Paducah'],
   ['SOUTHMISSVLY','Regional'],['CONUS','National'],
@@ -607,9 +580,12 @@ function mergeHist(sid, rows){
 }
 function saveHistLocal(){ if (!IS_APP) try{ localStorage.setItem('wf.hist.v1', JSON.stringify(hist)); }catch{} }
 let histWaiter = null;
+let histShared = null;              // {folder, status|error} when the app also reads a shared history folder
 HOST?.addEventListener('message', e=>{
   const m = e.data;
-  if (m?.type==='histData' && histWaiter){ const w = histWaiter; histWaiter = null; w(m.data||{}); }
+  if (m?.type!=='histData') return;
+  histShared = m.shared || null;
+  if (histWaiter){ const w = histWaiter; histWaiter = null; w(m.data||{}); }
 });
 function loadHistory(){
   if (!IS_APP){ const h = store.get('wf.hist.v1', {}); for (const s in h) mergeHist(s, h[s]); return Promise.resolve(); }
@@ -1069,6 +1045,13 @@ function updateHistInfo(){
   const sids = Object.keys(hist), n = sids.reduce((s,k)=>s+hist[k].length, 0);
   const oldest = Math.min(...sids.map(k=>hist[k][0]?.[0]||Infinity));
   document.getElementById('histInfo').textContent = n ? `${n.toLocaleString()} readings from ${sids.length} stations, back to ${new Date(oldest).toLocaleDateString()}.` : 'No readings saved yet.';
+  const el = document.getElementById('histSharedInfo');
+  if (!histShared){ el.style.display = 'none'; return; }
+  el.style.display = '';
+  const st = histShared.status, last = st?.lastRun ? +new Date(st.lastRun) : 0, stale = !last || Date.now()-last > 3*3600e3;
+  el.innerHTML = `Shared history: <code>${esc(histShared.folder)}</code><br>` + (histShared.error ? `<span class="err">Can't read it: ${esc(histShared.error)}</span>`
+    : last ? `<span class="${stale?'err':''}">${stale?'⚠ ':''}Collector last ran ${ago(last)}</span> on ${esc(st.machine||'?')} · ${st.ok}/${st.stations} stations${st.failed?` · ${st.failed} failed`:''}`
+    : `<span class="err">⚠ The collector hasn't run yet.</span>`);
 }
 function render(){
   document.getElementById('main').innerHTML = statePanel('TN')+statePanel('AR')+statePanel('MS')+alertsPanel();

@@ -82,6 +82,49 @@ Everything lives in `%LOCALAPPDATA%\WeatherFeeds\`:
 - `history\`: one CSV per weather station (time, temperature, dew point, pressure, wind, gust, humidity). The app keeps 30 days by default, adjustable to 7, 90 or 365 in Settings. NWS itself only keeps a few days, so longer trends build up while the app runs. Settings has an **Open history folder** button.
 - `WebView2\`: your dashboard preferences, cached NWS grid lookups and which alerts you've acknowledged.
 
+## Central share and collector
+
+Without a collector, history only builds while someone has the app open. Gaps of up to 7 days fill in on the next launch, because NWS keeps 7 days. For history with no gaps, shared by every user, run the collector on an always-on server.
+
+1. **Set up the share.**
+   - Run `.\publish.ps1`, then copy `WeatherFeeds.exe` and the deploy files to the share, for example `\\server\WeatherFeeds\`.
+   - Copy `WeatherFeeds.shared.sample.json` to `WeatherFeeds.shared.json` and fill in `contactEmail`. NWS requires a contact in every request.
+   - Change `historyFolder` if the default `history` folder next to the exe isn't where you want the data.
+2. **Schedule the collector.** On the server, as an administrator, run:
+
+   ```powershell
+   .\install-collector.ps1 -ExePath \\server\WeatherFeeds\WeatherFeeds.exe -EveryMinutes 30
+   ```
+
+   This registers a scheduled task that runs `WeatherFeeds.exe --collect` every 30 minutes, whether or not anyone is logged on. It runs under the Windows account you enter, which needs write access to the history folder.
+3. **Point users at the share.** Users start `WeatherFeeds.exe` from the share, or a shortcut to it.
+   - Each copy reads the shared history and never writes to it, so the share only ever has one writer.
+   - Each copy also keeps its own local history as a fallback.
+   - Settings → History shows when the collector last ran, and warns if that was more than 3 hours ago.
+
+What the collector does on each run:
+- It builds its station list from the three nearest stations to each county seat (`counties.js`) and refreshes the list weekly.
+- It downloads each station's new readings, following NWS paging, and backfills up to 7 days if a station's history has a gap.
+- It writes `collector.log` and `collector-status.json` in the history folder.
+- Only one collector can run per folder at a time.
+- It keeps 400 days of history unless the config says otherwise.
+
+| `--collect` option | Meaning |
+|---|---|
+| `--history <folder>` | Write here instead of the shared config's folder |
+| `--contact <email>` | NWS contact, if not in the shared config |
+| `--days <n>` | Retention in days |
+
+| Exit code | Meaning |
+|---|---|
+| 0 | OK |
+| 1 | Some stations failed |
+| 2 | Nothing worked |
+| 3 | Another collector is already running |
+| 4 | Setup problem (no folder or contact) |
+
+**Updating the app on the share:** Windows won't replace `WeatherFeeds.exe` while anyone has it open, and that includes the collector's short runs. Copy the new exe in when users have closed the app.
+
 ## Developing the dashboard UI
 
 The whole UI is one page: `src/WeatherFeeds/wwwroot/index.html`. You can work on it in a normal browser:
