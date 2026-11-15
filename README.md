@@ -16,6 +16,14 @@ A Windows 10/11 weather dashboard for the **Memphis DMA** (27 counties in Tennes
   - Extreme alerts can repeat every 30 s until you acknowledge them.
   - When NWS updates an alert you've already acknowledged, the update stays acknowledged and doesn't sound again.
   - The sounds are made in code and are deliberately **not** EAS tones.
+- **County cards** (open a state, or click a county row to jump straight to that county; the highlight follows the mouse) also show:
+  - **Temperature trend chart** along the bottom: 24 h, 3, 7 or 30 days of observed temperature, plus the next 24 h of forecast (dashed). Hover over it for exact readings.
+  - **Observed trends:** the last 24 h high and low, peak gust, and pressure with its 3-hour tendency.
+  - **Next 24 h amounts:** rain, snow, ice, peak gusts, thunder chance and feels-like range, from the NWS forecast grid.
+  - **SPC severe risk** for today, tomorrow and day 3, from the Storm Prediction Center outlooks. A Marginal-or-higher risk also shows as a badge on the dashboard row.
+  - **Climate** for the nearest climate site (Memphis, Tupelo or Jonesboro, via ACIS): today's normal high/low, records with years, and month- and year-to-date rain versus normal.
+  - **Storm reports** from the last 24 h (Iowa Environmental Mesonet).
+- **Rivers:** about 40 NOAA river gauges around the DMA. Each shows its stage, flood category, flood stage, 24 h change, forecast crest, and a 7-day chart with the flood line. Flooding gauges are listed first, and the header button flags them.
 - **Radar:** NWS loops or latest images for Memphis (KNQA), Columbus MS (KGWX), Little Rock (KLZK), Paducah (KPAH), the Southern Mississippi Valley region and the national view.
 - **Data age and refresh:** every panel shows when it was fetched, how old the forecast or feed is, and a countdown to the next refresh, with a manual ⟳ button.
   - Default refresh is 15 minutes for the state panels, 5 for alerts and 5 for radar. All are adjustable.
@@ -64,6 +72,7 @@ That command also writes `icon-256.png`. Copy it to `wwwroot/icon.png`, which th
 
 Everything lives in `%LOCALAPPDATA%\WeatherFeeds\`:
 - `settings.json`: the window size and position, always-on-top, minimize-to-tray, and the User-Agent.
+- `history\`: one CSV per weather station (time, temperature, dew point, pressure, wind, gust, humidity). The app keeps 30 days by default, adjustable to 7, 90 or 365 in Settings. NWS itself only keeps a few days, so longer trends build up while the app runs. Settings has an **Open history folder** button.
 - `WebView2\`: your dashboard preferences, cached NWS grid lookups and which alerts you've acknowledged.
 
 ## Developing the dashboard UI

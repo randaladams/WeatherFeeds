@@ -11,6 +11,7 @@ public sealed class HostSettings
     public string UserAgent { get; set; } = DefaultUserAgent;
     public bool Topmost { get; set; }
     public bool MinimizeToTray { get; set; }
+    public int HistoryDays { get; set; } = 30;
     public double? Left { get; set; }
     public double? Top { get; set; }
     public double? Width { get; set; }

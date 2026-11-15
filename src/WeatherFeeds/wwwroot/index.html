@@ -87,7 +87,7 @@ td.hl{font-variant-numeric:tabular-nums;color:var(--muted)}
 /* ---------- Full screens (county detail, radar) ---------- */
 .screen{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:10}
 .screen.show{display:flex}
-#detail .grid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-content:start}
+#detail .grid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;align-content:start}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
 .card.has-alert{border-color:var(--severe)}
 .card{transition:box-shadow .12s, transform .12s}
@@ -104,6 +104,42 @@ td.hl{font-variant-numeric:tabular-nums;color:var(--muted)}
 .fc b{display:block;font-size:12px;color:var(--muted);font-weight:500}
 .fc .tt{font-size:16px;font-weight:600}
 .chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+/* ---------- County extras: stats rows, SPC risk, storm reports, trend chart ---------- */
+.stats{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12px;color:var(--text2);margin-top:6px;padding-top:6px;border-top:1px solid var(--line2)}
+.stats b{color:var(--muted);font-weight:500;margin-right:4px}
+.spc{display:inline-block;padding:0 6px;border-radius:4px;font-size:11px;font-weight:700;color:#111;line-height:16px}
+td .spc{margin-left:6px}
+.lsr{font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line2)}
+.lsr div{margin:2px 0}
+.trend{margin-top:10px;padding-top:6px;border-top:1px solid var(--line2)}
+.trend .ttl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.trend .key{display:inline-flex;gap:10px;align-items:center}
+.trend .key i{display:inline-block;width:18px;border-top:2px solid var(--accent);vertical-align:middle;margin-right:4px}
+.trend .key i.dash{border-top-style:dashed}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart .gl{stroke:var(--line2);stroke-width:1}
+.chart .axis{fill:var(--muted);font-size:10px;font-family:inherit}
+.chart .obs{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .fcl{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4;opacity:.75}
+.chart .nowl{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
+.chart .ref{stroke:var(--bad);stroke-width:1;stroke-dasharray:4 3}
+.chart .ref-l{fill:var(--bad);font-size:10px}
+.chart .mk{fill:var(--accent);stroke:var(--panel);stroke-width:2}
+.chart .mk-l{fill:var(--text2);font-size:10px;font-weight:600}
+.chart .xh{stroke:var(--muted);stroke-width:1;display:none}
+.chart .xd{fill:var(--accent);stroke:var(--panel);stroke-width:2;display:none}
+.chart.hover .xh,.chart.hover .xd{display:block}
+#tip{position:fixed;pointer-events:none;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.25);z-index:40;display:none;white-space:nowrap}
+#tip b{font-size:13px}
+/* ---------- Rivers ---------- */
+#rivers .grid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-content:start}
+.gauge h3{margin:0;font-size:15px}
+.gauge .riv{color:var(--muted);font-size:12px}
+.gauge .stage{display:flex;align-items:baseline;gap:10px;margin:6px 0}
+.gauge .stage .big{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
+.gauge a{color:var(--accent);font-size:12px;text-decoration:none}
+.fl-no_flooding{background:var(--ok);color:#fff} .fl-action{background:#e6c700} .fl-minor{background:#ff9900} .fl-moderate{background:#ff2a2a;color:#fff} .fl-major{background:#c13cff;color:#fff}
+.flagcount{margin-left:4px}
 .age-old{color:var(--warn)} .age-stale{color:var(--bad)}
 #radar .rbody{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:12px;background:#000}
 #radar img{max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain}
@@ -132,6 +168,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
   <h1><img src="icon.png" alt="" class="logo">WeatherFeeds <small>Memphis DMA · 27 counties · NWS api.weather.gov</small></h1>
   <span class="spacer"></span>
   <button class="btn" id="openRadar">📡 Radar</button>
+  <button class="btn" id="openRivers">🌊 Rivers<span id="riverFlag"></span></button>
   <button class="btn" id="refreshAll">⟳ Refresh all</button>
   <button class="btn" id="openSettings">⚙ Settings</button>
   <span class="clock" id="clock"></span>
@@ -144,6 +181,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
   <header>
     <button class="btn" data-close>← Dashboard</button>
     <h1 id="dTitle"></h1>
+    <span class="seg" id="trendSeg" title="Temperature trend range"><button data-trend="1">24 h</button><button data-trend="3">3 days</button><button data-trend="7">7 days</button><button data-trend="30">30 days</button></span>
     <span class="spacer"></span>
     <span class="clock" id="dStats"></span>
     <button class="btn" id="dRefresh">⟳ Refresh</button>
@@ -164,6 +202,19 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
   <div class="rbody"><img id="rImg" alt="NWS radar image"></div>
 </div>
 
+<div id="rivers" class="screen">
+  <header>
+    <button class="btn" data-close>← Dashboard</button>
+    <h1>Rivers</h1>
+    <span class="clock" id="rvSummary"></span>
+    <span class="spacer"></span>
+    <span class="clock" id="rvStats"></span>
+    <button class="btn" id="rvRefresh">⟳ Refresh</button>
+  </header>
+  <div class="grid" id="rvGrid"></div>
+</div>
+
+<div id="tip"></div>
 <div id="scrim"></div>
 <aside id="settings">
   <header><h1>Settings</h1><span class="spacer"></span><button class="btn" id="closeSettings">✕</button></header>
@@ -183,6 +234,14 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
       <select id="alertInt"><option value="1">every 1 min</option><option value="2">every 2 min</option><option value="5">every 5 min</option><option value="10">every 10 min</option></select></div>
     <div class="row"><label for="radarInt">Radar</label>
       <select id="radarInt"><option value="2">every 2 min</option><option value="5">every 5 min</option><option value="10">every 10 min</option></select></div>
+
+    <h3>History</h3>
+    <div class="row"><label for="histDays">Keep readings for</label>
+      <select id="histDays"><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option><option value="365">1 year</option></select></div>
+    <div class="hint" id="histInfo"></div>
+    <div class="hint app-only">Saved as one CSV file per weather station in %LOCALAPPDATA%\WeatherFeeds\history. NWS only keeps about 7 days, so longer trends build up while the app runs.</div>
+    <div class="row app-only"><button class="btn" id="openHistory">📂 Open history folder</button></div>
+    <div class="hint web-only">The browser preview keeps only the last 3 days. The Windows app saves readings as CSV files.</div>
 
     <h3>Alerts &amp; sound</h3>
     <div class="row"><label><input type="checkbox" id="incModerate"> Count Moderate alerts as high</label></div>
@@ -255,7 +314,7 @@ const store = {
 };
 const DEFAULTS = {stateInt:15, alertInt:5, radarInt:5, incModerate:false, theme:'auto',
   sound:true, volume:0.6, repeatExtreme:true, appId:'WeatherFeeds/1.0', contact:'', apiKey:'',
-  radarSite:'KNQA', radarMode:'loop', topmost:false, minToTray:false, popups:true};
+  radarSite:'KNQA', radarMode:'loop', topmost:false, minToTray:false, popups:true, histDays:30, trendDays:3};
 
 // ---------- Windows app bridge (WebView2). In a normal browser these are no-ops. ----------
 const HOST = window.chrome?.webview;
@@ -382,10 +441,10 @@ function alertPopup(list){
 
 // ---------- Data loading ----------
 async function ensureMeta(c){
-  if (meta[c.fips]?.forecast) return meta[c.fips];
+  if (meta[c.fips]?.grid) return meta[c.fips];
   const p = await nws(`${API}/points/${c.lat},${c.lon}`);
   const st = await nws(p.properties.observationStations);
-  meta[c.fips] = {forecast:p.properties.forecast, office:p.properties.gridId,
+  meta[c.fips] = {forecast:p.properties.forecast, grid:p.properties.forecastGridData, office:p.properties.gridId,
     stations: st.features.slice(0,3).map(f=>f.properties.stationIdentifier)};
   store.set('wf.meta.v1', meta);
   return meta[c.fips];
@@ -402,7 +461,8 @@ async function loadCounty(c){
                if (o.properties.temperature?.value != null) return {...o.properties, sid}; }catch{}
         }
         return null;
-      })()
+      })(),
+      loadGrid(c, m).catch(()=>{}),      // forecast amounts are optional
     ]);
     Object.assign(d, {fc, obs, err:null, fetchedAt:Date.now()});
     return true;
@@ -411,14 +471,18 @@ async function loadCounty(c){
 async function refreshState(st){
   const m = stMeta[st]; if (m.loading) return;
   m.loading = true; render();
+  Promise.all([refreshSPC(), refreshClimate()]).then(render, ()=>{});
   let ok=0, fail=0;
   await pool(COUNTIES.filter(c=>c.st===st), 4, async c=>{ (await loadCounty(c)) ? ok++ : fail++; render(); });
   Object.assign(m, {loading:false, ok, fail, fetchedAt:Date.now(), nextAt:Date.now()+prefs.stateInt*60000});
+  render();
+  await refreshHistory(st);              // after the cards are up: backfill/extend the trend history
   render();
 }
 async function refreshAlerts(){
   if (alertMeta.loading) return;
   alertMeta.loading = true; render();
+  refreshLSR().then(render);
   try{
     const j = await nws(`${API}/alerts/active?area=TN,AR,MS`);
     alerts = j.features.map(f=>f.properties).map(p=>({...p, dma:(p.geocode?.SAME||[]).map(s=>s.padStart(6,'0')).filter(s=>BY_FIPS[s])}))
@@ -453,6 +517,318 @@ function demoAlerts(){
 }
 const alertsFor = fips => alerts.filter(a=>a.dma.includes(fips));
 
+// =====================================================================================
+// Extra county data: observation history, forecast amounts, SPC risk, climate, storm
+// reports and river gauges. Everything here is optional: a failed source just hides
+// its section.
+// =====================================================================================
+async function getJSON(url, tries=2){          // non-NWS sources (no NWS API key sent)
+  let last;
+  for (let i=0;i<tries;i++){
+    try{ const r = await fetch(url, {cache:'no-store'}); if (r.ok) return await r.json(); last = new Error(`HTTP ${r.status}`); }
+    catch(e){ last = e; }
+    await sleep(800*(i+1));
+  }
+  throw last;
+}
+const localDate = ()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+const r1 = v => v==null ? null : Math.round(v*10)/10;
+const mmToIn = mm => mm/25.4;
+const paToInHg = pa => pa/3386.39;
+
+// ---------- Observation history (kept locally: CSV files in the app, localStorage in a browser) ----------
+const hist = {};                    // station -> [[t, tempC, dewC, pressurePa, windKmh, gustKmh, rh%], ...] oldest first
+const histFetchedAt = {};
+const BROWSER_HIST_DAYS = 3;
+const histCutoff = ()=>Date.now() - (IS_APP ? prefs.histDays : Math.min(prefs.histDays, BROWSER_HIST_DAYS))*864e5;
+function mergeHist(sid, rows){
+  const byT = new Map((hist[sid]||[]).map(r=>[r[0], r]));
+  let added = 0;
+  for (const r of rows) if (!byT.has(r[0])){ byT.set(r[0], r); added++; }
+  const cut = histCutoff();
+  hist[sid] = [...byT.values()].filter(r=>r[0]>=cut).sort((a,b)=>a[0]-b[0]);
+  return added;
+}
+function saveHistLocal(){ if (!IS_APP) try{ localStorage.setItem('wf.hist.v1', JSON.stringify(hist)); }catch{} }
+let histWaiter = null;
+HOST?.addEventListener('message', e=>{
+  const m = e.data;
+  if (m?.type==='histData' && histWaiter){ const w = histWaiter; histWaiter = null; w(m.data||{}); }
+});
+function loadHistory(){
+  if (!IS_APP){ const h = store.get('wf.hist.v1', {}); for (const s in h) mergeHist(s, h[s]); return Promise.resolve(); }
+  return new Promise(res=>{
+    const timer = setTimeout(()=>{ histWaiter = null; res(); }, 5000);
+    histWaiter = d=>{ clearTimeout(timer); for (const s in d) mergeHist(s, d[s]); res(); };
+    postHost('histLoad', {});
+  });
+}
+const obsRow = p => [+new Date(p.timestamp), r1(p.temperature?.value), r1(p.dewpoint?.value),
+  Math.round(p.barometricPressure?.value) || null,      // one consistent pressure measure (sea-level is often missing)
+  r1(p.windSpeed?.value), r1(p.windGust?.value), r1(p.relativeHumidity?.value)];
+async function fetchHistory(sid){
+  if (Date.now()-(histFetchedAt[sid]||0) < 10*60000) return;
+  histFetchedAt[sid] = Date.now();
+  const rows = hist[sid]||[];
+  const last = rows.length ? rows[rows.length-1][0] : 0;
+  const start = new Date(Math.max(last+1000, Date.now()-7*864e5)).toISOString().replace(/\.\d+Z$/,'Z');
+  const j = await nws(`${API}/stations/${sid}/observations?start=${start}`, 2);
+  const fresh = j.features.map(f=>obsRow(f.properties)).filter(r=>r[1]!=null);
+  if (mergeHist(sid, fresh)){ postHost('histAppend', {station:sid, rows:fresh}); saveHistLocal(); }
+}
+async function refreshHistory(st){
+  const sids = [...new Set(COUNTIES.filter(c=>c.st===st).map(c=>data[c.fips]?.obs?.sid).filter(Boolean))];
+  await pool(sids, 2, sid=>fetchHistory(sid).catch(()=>{}));
+}
+function obsTrends(sid){
+  const rows = hist[sid]||[], now = Date.now();
+  const day = rows.filter(r=>r[0]>=now-864e5);
+  if (!day.length) return null;
+  const temps = day.map(r=>r[1]).filter(v=>v!=null), gusts = day.map(r=>r[5]).filter(v=>v!=null);
+  const pres = rows.filter(r=>r[3]!=null), latest = pres[pres.length-1];
+  let p = null;
+  if (latest){
+    const back = pres.filter(r=>r[0]<=latest[0]-3*3600e3 && r[0]>=latest[0]-4*3600e3).pop();
+    const d = back ? paToInHg(latest[3]-back[3]) : null;
+    p = {now:paToInHg(latest[3]), d, // 3-hour change; "rapidly" follows the NWS sense of ≥ 0.06 inHg per hour.
+            word: d==null?'':Math.abs(d)<0.02?'steady':d>0?(d>=0.18?'rising rapidly':'rising'):(d<=-0.18?'falling rapidly':'falling')};
+  }
+  return {hi:temps.length?cToF(Math.max(...temps)):null, lo:temps.length?cToF(Math.min(...temps)):null,
+          gust:gusts.length?kmhToMph(Math.max(...gusts)):null, p};
+}
+
+// ---------- NWS forecast grid: amounts, gusts, feels-like, thunder ----------
+function isoDur(s){
+  const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(s||'') || [];
+  return ((+m[1]||0)*24*60 + (+m[2]||0)*60 + (+m[3]||0))*60000;
+}
+const gridSeries = prop => (prop?.values||[]).map(v=>{ const [s,d] = v.validTime.split('/'); const t0 = +new Date(s); return {t0, t1:t0+isoDur(d), v:v.value}; });
+function sumWindow(ser, a, b){ let s=0; for (const x of ser){ const o = Math.min(x.t1,b)-Math.max(x.t0,a); if (o>0 && x.v!=null) s += x.v*o/(x.t1-x.t0); } return s; }
+function extWindow(ser, a, b, fn){ const v = ser.filter(x=>x.t1>a && x.t0<b && x.v!=null).map(x=>x.v); return v.length ? fn(...v) : null; }
+async function loadGrid(c, m){
+  const d = data[c.fips] ||= {};
+  if (Date.now()-(d.gridAt||0) < 45*60000 || !m.grid) return;
+  const p = (await nws(m.grid, 2)).properties;
+  d.grid = {temp:gridSeries(p.temperature), qpf:gridSeries(p.quantitativePrecipitation), snow:gridSeries(p.snowfallAmount),
+    ice:gridSeries(p.iceAccumulation), gust:gridSeries(p.windGust), feels:gridSeries(p.apparentTemperature),
+    thunder:gridSeries(p.probabilityOfThunder), updated:p.updateTime};
+  d.gridAt = Date.now();
+}
+function gridSummary(g, hours){
+  if (!g) return null;
+  const a = Date.now(), b = a + hours*3600e3;
+  return {rain:mmToIn(sumWindow(g.qpf,a,b)), snow:mmToIn(sumWindow(g.snow,a,b)), ice:mmToIn(sumWindow(g.ice,a,b)),
+    gust:kmhToMph(extWindow(g.gust,a,b,Math.max)), thunder:extWindow(g.thunder,a,b,Math.max),
+    feelsLo:cToF(extWindow(g.feels,a,b,Math.min)), feelsHi:cToF(extWindow(g.feels,a,b,Math.max))};
+}
+const inches = v => v<0.005 ? '0″' : v<0.1 ? v.toFixed(2)+'″' : v.toFixed(1)+'″';
+
+// ---------- SPC convective outlooks (days 1–3) ----------
+const SPC_RANK = {TSTM:1, MRGL:2, SLGT:3, ENH:4, MDT:5, HIGH:6};
+const SPC_NAME = {TSTM:'Thunderstorms', MRGL:'Marginal', SLGT:'Slight', ENH:'Enhanced', MDT:'Moderate', HIGH:'High'};
+let spc = {days:[], fetchedAt:0}, spcLoading = null;
+function refreshSPC(){
+  if (Date.now()-spc.fetchedAt < 30*60000) return Promise.resolve();
+  return spcLoading ||= (async()=>{
+    const days = await Promise.all([1,2,3].map(n=>getJSON(`https://www.spc.noaa.gov/products/outlook/day${n}otlk_cat.lyr.geojson`).catch(()=>null)));
+    if (days.some(Boolean)) spc = {days, fetchedAt:Date.now()};
+  })().finally(()=>spcLoading = null);
+}
+function inRing(ring, x, y){
+  let inside = false;
+  for (let i=0, j=ring.length-1; i<ring.length; j=i++){
+    const [xi,yi] = ring[i], [xj,yj] = ring[j];
+    if ((yi>y) !== (yj>y) && x < (xj-xi)*(y-yi)/(yj-yi)+xi) inside = !inside;
+  }
+  return inside;
+}
+const inPoly = (poly,x,y) => inRing(poly[0],x,y) && !poly.slice(1).some(h=>inRing(h,x,y));
+const inGeom = (g,x,y) => !g ? false : g.type==='Polygon' ? inPoly(g.coordinates,x,y) : g.type==='MultiPolygon' ? g.coordinates.some(p=>inPoly(p,x,y)) : false;
+function spcRisk(day, c){
+  let best = null;
+  for (const f of spc.days[day]?.features||[]){
+    const L = f.properties?.LABEL;
+    if (SPC_RANK[L] && (!best || SPC_RANK[L]>SPC_RANK[best.label]) && inGeom(f.geometry, c.lon, c.lat))
+      best = {label:L, name:SPC_NAME[L], fill:f.properties.fill||'#ccc'};
+  }
+  return best;
+}
+const spcChip = r => r ? `<span class="spc" style="background:${esc(r.fill)}" title="${esc(r.name)} risk">${r.name}</span>` : 'None';
+
+// ---------- Climate normals and records (ACIS threaded climate sites) ----------
+const CLIMATE_SITES = [
+  {sid:'MEMthr', name:'Memphis',   lat:35.06, lon:-89.99},
+  {sid:'TUPthr', name:'Tupelo',    lat:34.26, lon:-88.77},
+  {sid:'JBRthr', name:'Jonesboro', lat:35.83, lon:-90.65},
+];
+const climate = {};
+let climateLoading = null;
+const acis = params => getJSON('https://data.rcc-acis.org/StnData?params='+encodeURIComponent(JSON.stringify(params)));
+const acisNum = v => v==null || v==='M' ? null : v==='T' ? 0 : +v;
+function refreshClimate(){
+  const today = localDate();
+  if (CLIMATE_SITES.every(s=>climate[s.sid]?.date===today)) return Promise.resolve();
+  return climateLoading ||= Promise.all(CLIMATE_SITES.map(async s=>{
+    if (climate[s.sid]?.date===today) return;
+    try{
+      const md = today.slice(5), first = md==='02-29' ? '1872' : '1870';
+      const [a, b] = await Promise.all([
+        acis({sid:s.sid, sdate:today, edate:today, elems:[{name:'maxt',normal:'1'},{name:'mint',normal:'1'},
+          {name:'pcpn',interval:'dly',duration:'mtd',reduce:'sum'},{name:'pcpn',interval:'dly',duration:'mtd',reduce:'sum',normal:'1'},
+          {name:'pcpn',interval:'dly',duration:'ytd',reduce:'sum'},{name:'pcpn',interval:'dly',duration:'ytd',reduce:'sum',normal:'1'}]}),
+        acis({sid:s.sid, sdate:`${first}-${md}`, edate:today, elems:[
+          {name:'maxt',interval:[1,0,0],duration:1,smry:{reduce:'max',add:'date'},smry_only:1},
+          {name:'mint',interval:[1,0,0],duration:1,smry:{reduce:'min',add:'date'},smry_only:1}]}),
+      ]);
+      const d = a.data?.[0]||[], sm = b.smry||[];
+      climate[s.sid] = {date:today, name:s.name, normHi:acisNum(d[1]), normLo:acisNum(d[2]), mtd:acisNum(d[3]), mtdNorm:acisNum(d[4]),
+        ytd:acisNum(d[5]), ytdNorm:acisNum(d[6]), recHi:acisNum(sm[0]?.[0]), recHiYr:sm[0]?.[1]?.slice(0,4),
+        recLo:acisNum(sm[1]?.[0]), recLoYr:sm[1]?.[1]?.slice(0,4)};
+    }catch{}
+  })).finally(()=>climateLoading = null);
+}
+function nearestClimate(c){
+  let best = null, bd = Infinity;
+  for (const s of CLIMATE_SITES){ const d = (s.lat-c.lat)**2 + ((s.lon-c.lon)*Math.cos(c.lat*Math.PI/180))**2; if (d<bd){ bd=d; best=s; } }
+  return climate[best.sid];
+}
+
+// ---------- Local storm reports, last 24 h (Iowa Environmental Mesonet) ----------
+let lsr = [];
+async function refreshLSR(){
+  try{
+    // Filter by state on the server: the unfiltered feed is capped at 100 reports nationwide.
+    const j = await getJSON('https://mesonet.agron.iastate.edu/geojson/lsr.php?states=TN,AR,MS&hours=24');
+    lsr = j.features.map(f=>f.properties);
+  }catch{}
+  if (DEMO) lsr = lsr.concat([{county:'Shelby', state:'TN', city:'Bartlett', typetext:'[DEMO] TSTM WND DMG', magnitude:'', unit:'',
+    valid:new Date(Date.now()-3600e3).toISOString(), remark:'Sample report for layout preview only.'}]);
+}
+const nameKey = s => String(s||'').toLowerCase().replace(/[^a-z]/g,'');
+const lsrFor = c => lsr.filter(p=>nameKey(p.county)===nameKey(c.name) && p.state===c.st);
+
+// ---------- River gauges (NOAA National Water Prediction Service) ----------
+const FLOOD_ORDER = {major:4, moderate:3, minor:2, action:1, no_flooding:0};
+const FLOOD_NAME = {major:'Major flood', moderate:'Moderate flood', minor:'Minor flood', action:'Action stage', no_flooding:'Normal'};
+const rivers = {list:[], fetchedAt:0, nextAt:0, loading:false, err:null};
+const gaugeInfo = store.get('wf.gauges.v1', {});
+async function refreshRivers(){
+  if (rivers.loading) return;
+  rivers.loading = true; renderRivers();
+  try{
+    const b = await getJSON('https://api.water.noaa.gov/nwps/v1/gauges?bbox.xmin=-91.0&bbox.ymin=34.0&bbox.xmax=-88.4&bbox.ymax=36.3&srid=EPSG_4326');
+    const list = b.gauges.filter(g=>g.status?.observed?.primary>-999 && FLOOD_ORDER[g.status.observed.floodCategory]!=null);
+    await pool(list, 4, async g=>{
+      if (!gaugeInfo[g.lid] || Date.now()-gaugeInfo[g.lid].at > 7*864e5){
+        try{ const d = await getJSON(`https://api.water.noaa.gov/nwps/v1/gauges/${g.lid}`); gaugeInfo[g.lid] = {at:Date.now(), cats:d.flood?.categories||{}}; }catch{}
+      }
+      try{
+        const sf = await getJSON(`https://api.water.noaa.gov/nwps/v1/gauges/${g.lid}/stageflow`);
+        const pts = arr => (arr||[]).filter(p=>p.primary>-999).map(p=>[+new Date(p.validTime), p.primary]);
+        g.obs = pts(sf.observed?.data).filter(p=>p[0]>=Date.now()-7*864e5);
+        g.fc = pts(sf.forecast?.data).filter(p=>p[0]>=Date.now());
+      }catch{}
+    });
+    store.set('wf.gauges.v1', gaugeInfo);
+    // Flooding first, then the Mississippi (north to south), then the other rivers alphabetically.
+    const isMiss = g => /^Mississippi River/i.test(g.name) ? 0 : 1;
+    rivers.list = list.sort((x,y)=>FLOOD_ORDER[y.status.observed.floodCategory]-FLOOD_ORDER[x.status.observed.floodCategory]
+      || isMiss(x)-isMiss(y) || (isMiss(x)===0 ? y.latitude-x.latitude : x.name.localeCompare(y.name)));
+    rivers.err = null;
+  }catch(e){ rivers.err = e.message||String(e); }
+  Object.assign(rivers, {loading:false, fetchedAt:Date.now(), nextAt:Date.now()+30*60000});
+  renderRivers();
+}
+
+// ---------- Line chart (temperature trend, river stage) ----------
+// One series drawn solid for observed and dashed for forecast; recessive grid; crosshair tooltip on hover.
+const charts = new Map();
+let chartSeq = 0;
+function downsample(pts, max){
+  if (pts.length <= max) return pts;
+  const out = [], size = pts.length/max;
+  for (let i=0;i<max;i++){
+    const seg = pts.slice(Math.floor(i*size), Math.floor((i+1)*size));
+    out.push([seg.reduce((s,p)=>s+p[0],0)/seg.length, seg.reduce((s,p)=>s+p[1],0)/seg.length]);
+  }
+  return out;
+}
+const clearCharts = group => { for (const k of charts.keys()) if (k[0]===group) charts.delete(k); };
+function lineChart({obs, fc, t0, t1, w=400, h=130, unit='°', minSpan=10, ref=null, axes=true, hilo=true, label, group='d'}){
+  const pad = axes ? {l:30, r:8, t:16, b:18} : {l:4, r:4, t:6, b:6};
+  const all = obs.concat(fc);
+  if (all.length < 2) return '';
+  let lo = Math.min(...all.map(p=>p[1])), hi = Math.max(...all.map(p=>p[1]));
+  if (ref!=null){ lo = Math.min(lo, ref.y); hi = Math.max(hi, ref.y); }
+  if (hi-lo < minSpan){ const mid = (hi+lo)/2; lo = mid-minSpan/2; hi = mid+minSpan/2; }
+  const step = [1,2,5,10,20,50].find(s=>(hi-lo)/s <= 4) || 100;
+  lo = Math.floor(lo/step)*step; hi = Math.ceil(hi/step)*step;
+  const X = t => pad.l + (t-t0)/(t1-t0)*(w-pad.l-pad.r), Y = v => pad.t + (hi-v)/(hi-lo)*(h-pad.t-pad.b);
+  const path = pts => pts.map((p,i)=>`${i?'L':'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
+  let svg = '';
+  if (axes){
+    for (let v=lo; v<=hi+1e-9; v+=step)
+      svg += `<line class="gl" x1="${pad.l}" x2="${w-pad.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${pad.l-4}" y="${Y(v)+3}" text-anchor="end">${+v.toFixed(1)}${unit}</text>`;
+    const days = (t1-t0)/864e5, every = days>14 ? 5 : days>8 ? 2 : 1;
+    const d = new Date(t0); d.setHours(24,0,0,0);
+    for (let i=0; +d < t1; d.setDate(d.getDate()+1), i++){
+      if (i % every) continue;
+      const x = X(+d);
+      svg += `<line class="gl" x1="${x}" x2="${x}" y1="${pad.t}" y2="${h-pad.b}"/>`;
+      svg += `<text class="axis" x="${x+3}" y="${h-5}">${days>8 ? (d.getMonth()+1)+'/'+d.getDate() : d.toLocaleDateString([], {weekday:'short'})}</text>`;
+    }
+  }
+  const nowX = X(Date.now());
+  if (nowX>pad.l && nowX<w-pad.r) svg += `<line class="nowl" x1="${nowX}" x2="${nowX}" y1="${pad.t-4}" y2="${h-pad.b}"/>` + (axes?`<text class="axis" x="${nowX}" y="${pad.t-6}" text-anchor="middle">Now</text>`:'');
+  if (ref!=null) svg += `<line class="ref" x1="${pad.l}" x2="${w-pad.r}" y1="${Y(ref.y)}" y2="${Y(ref.y)}"/>` + (axes?`<text class="ref-l" x="${w-pad.r}" y="${Y(ref.y)-3}" text-anchor="end">${esc(ref.label)}</text>`:'');
+  if (obs.length>1) svg += `<path class="obs" d="${path(obs)}"/>`;
+  if (fc.length>1) svg += `<path class="fcl" d="${path(fc)}"/>`;
+  if (hilo && obs.length>2){
+    const mx = obs.reduce((a,p)=>p[1]>a[1]?p:a), mn = obs.reduce((a,p)=>p[1]<a[1]?p:a);
+    for (const [p, dy] of [[mx,-6],[mn,13]])
+      svg += `<circle class="mk" cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5"/><text class="mk-l" x="${X(p[0])}" y="${Y(p[1])+dy}" text-anchor="middle">${Math.round(p[1])}${unit}</text>`;
+  }
+  const id = group+(++chartSeq);
+  charts.set(id, {pts:obs.map(p=>[...p,0]).concat(fc.map(p=>[...p,1])), X, Y, t0, t1, pad, w, unit});
+  svg += `<line class="xh" y1="${pad.t}" y2="${h-pad.b}"/><circle class="xd" r="4"/>`;
+  return `<svg class="chart" data-chart="${id}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label||'')}">${svg}</svg>`;
+}
+function trendChart(c){
+  const d = data[c.fips]||{}, sid = d.obs?.sid, now = Date.now();
+  const days = prefs.trendDays, t0 = now - days*864e5, t1 = now + 24*3600e3;
+  const raw = ((sid && hist[sid])||[]).filter(r=>r[0]>=t0 && r[1]!=null).map(r=>[r[0], r[1]*9/5+32]);
+  if (d.obs?.temperature?.value!=null){ const t = +new Date(d.obs.timestamp); if (!raw.length || t>raw[raw.length-1][0]) raw.push([t, d.obs.temperature.value*9/5+32]); }
+  const obs = downsample(raw, 320);
+  const fc = (d.grid?.temp||[]).filter(s=>s.t1>now && s.t0<t1).map(s=>[Math.max(s.t0, now), s.v*9/5+32]);
+  if (obs.length && fc.length) fc.unshift(obs[obs.length-1]);
+  const span = days===1 ? 'past 24 hours' : `past ${days} days`;
+  const head = `<div class="ttl"><span>Temperature · ${span} + next 24 h</span><span class="key"><span><i></i>observed</span><span><i class="dash"></i>forecast</span></span></div>`;
+  const svg = lineChart({obs, fc, t0, t1, unit:'°', label:`${c.name} County temperature, ${span} and next 24 hours`});
+  const have = raw.length ? (now-raw[0][0])/864e5 : 0;
+  const note = days>1 && have < days-0.5 ? `<div class="sub">${have<0.1?'Collecting history…':`History so far: ${have<1?Math.round(have*24)+' hours':have.toFixed(1)+' days'}`}</div>` : '';
+  return `<div class="trend">${head}${svg || '<div class="sub">Collecting history…</div>'}${note}</div>`;
+}
+// Crosshair tooltip shared by every chart.
+document.addEventListener('mousemove', e=>{
+  const tip = document.getElementById('tip');
+  const svg = e.target.closest?.('svg.chart');
+  document.querySelectorAll('svg.chart.hover').forEach(s=>{ if (s!==svg) s.classList.remove('hover'); });
+  if (!svg){ tip.style.display = 'none'; return; }
+  const ch = charts.get(svg.dataset.chart); if (!ch || !ch.pts.length) return;
+  const box = svg.getBoundingClientRect(), x = (e.clientX-box.left)/box.width*ch.w;
+  const t = ch.t0 + (x-ch.pad.l)/(ch.w-ch.pad.l-ch.pad.r)*(ch.t1-ch.t0);
+  const p = ch.pts.reduce((a,q)=>Math.abs(q[0]-t)<Math.abs(a[0]-t)?q:a);
+  svg.classList.add('hover');
+  const xh = svg.querySelector('.xh'), xd = svg.querySelector('.xd');
+  xh.setAttribute('x1', ch.X(p[0])); xh.setAttribute('x2', ch.X(p[0]));
+  xd.setAttribute('cx', ch.X(p[0])); xd.setAttribute('cy', ch.Y(p[1]));
+  tip.innerHTML = `<b>${(Math.round(p[1]*10)/10)}${ch.unit}</b> ${p[2]?'forecast':'observed'}<br>${new Date(p[0]).toLocaleString([], {weekday:'short', month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
+  tip.style.display = 'block';
+  const tw = tip.offsetWidth;
+  tip.style.left = Math.min(e.clientX+14, innerWidth-tw-8)+'px';
+  tip.style.top = (e.clientY+14)+'px';
+});
+
 // ---------- Rendering ----------
 function hiLo(periods){
   if (!periods) return '';
@@ -466,8 +842,9 @@ function statePanel(st){
   const oldestFc = fcTimes.length ? Math.min(...fcTimes) : 0;
   const rows = list.map(c=>{
     const d = data[c.fips]||{}, o = d.obs, t = o ? cToF(o.temperature.value) : null;
-    const al = alertsFor(c.fips), top = al[0];
-    return `<tr data-county="${c.fips}" title="Open ${esc(c.name)} County"><td>${esc(c.name)}</td>
+    const al = alertsFor(c.fips), top = al[0], risk = spcRisk(0, c);
+    const riskBadge = risk && SPC_RANK[risk.label]>=2 ? `<span class="spc" style="background:${esc(risk.fill)}" title="SPC severe risk today: ${risk.name}">${risk.label}</span>` : '';
+    return `<tr data-county="${c.fips}" title="Open ${esc(c.name)} County"><td>${esc(c.name)}${riskBadge}</td>
       <td class="t">${t!=null?t+'°':(d.err?'<span class="err" title="'+esc(d.err)+'">!</span>':'…')}</td>
       <td class="sky">${esc(o?.textDescription||d.fc?.periods?.[0]?.shortForecast||'')}</td>
       <td class="hl">${hiLo(d.fc?.periods)}</td>
@@ -522,11 +899,89 @@ function countyCard(c){
     <div class="now"><span class="big">${t!=null?t+'°':'—'}</span><div><div>${esc(o?.textDescription||'')}</div>
       <div class="sub">${wind}${o?.relativeHumidity?.value!=null?` · RH ${Math.round(o.relativeHumidity.value)}%`:''}</div>
       <div class="sub">Observed <span class="${ageClass(obsTs,75,150)}" data-ago="${obsTs}">${ago(obsTs)}</span></div></div></div>
-    <div class="fc">${fc||'<div>Loading…</div>'}</div></div>`;
+    ${countyExtras(c)}
+    <div class="fc">${fc||'<div>Loading…</div>'}</div>
+    ${trendChart(c)}</div>`;
+}
+function countyExtras(c){
+  const d = data[c.fips]||{}, out = [];
+  const tr = d.obs?.sid ? obsTrends(d.obs.sid) : null;
+  if (tr){
+    const parts = [];
+    if (tr.hi!=null) parts.push(`<span><b>Last 24 h</b>${tr.hi}° / ${tr.lo}°</span>`);
+    if (tr.gust!=null) parts.push(`<span><b>Peak gust</b>${tr.gust} mph</span>`);
+    if (tr.p) parts.push(`<span><b>Pressure</b>${tr.p.now.toFixed(2)} inHg${tr.p.word?` ${tr.p.d>0.019?'↑':tr.p.d<-0.019?'↓':'→'} ${tr.p.word}`:''}</span>`);
+    if (parts.length) out.push(`<div class="stats">${parts.join('')}</div>`);
+  }
+  const g = gridSummary(d.grid, 24);
+  if (g){
+    const parts = [`<span><b>Next 24 h</b>Rain ${inches(g.rain)}</span>`];
+    if (g.snow>=0.05) parts.push(`<span>Snow ${inches(g.snow)}</span>`);
+    if (g.ice>=0.01) parts.push(`<span>Ice ${inches(g.ice)}</span>`);
+    if (g.gust!=null) parts.push(`<span>Gusts to ${g.gust} mph</span>`);
+    if (g.thunder) parts.push(`<span>Thunder ${g.thunder}%</span>`);
+    if (g.feelsLo!=null) parts.push(`<span>Feels like ${g.feelsLo}°–${g.feelsHi}°</span>`);
+    out.push(`<div class="stats">${parts.join('')}</div>`);
+  }
+  if (spc.days.some(Boolean))
+    out.push(`<div class="stats"><span><b>Severe risk (SPC)</b>Today ${spcChip(spcRisk(0,c))}</span><span>Tomorrow ${spcChip(spcRisk(1,c))}</span><span>Day 3 ${spcChip(spcRisk(2,c))}</span></div>`);
+  const cl = nearestClimate(c);
+  if (cl){
+    const parts = [`<span><b>Climate (${esc(cl.name)})</b>Normal ${cl.normHi??'–'}° / ${cl.normLo??'–'}°</span>`];
+    if (cl.recHi!=null) parts.push(`<span>Record ${cl.recHi}° (${cl.recHiYr}) / ${cl.recLo}° (${cl.recLoYr})</span>`);
+    if (cl.mtd!=null) parts.push(`<span>Rain this month ${cl.mtd.toFixed(2)}″ (normal ${cl.mtdNorm?.toFixed(2)??'–'}″)</span>`);
+    if (cl.ytd!=null) parts.push(`<span>This year ${cl.ytd.toFixed(2)}″ (normal ${cl.ytdNorm?.toFixed(2)??'–'}″)</span>`);
+    out.push(`<div class="stats">${parts.join('')}</div>`);
+  }
+  const reps = lsrFor(c);
+  if (reps.length)
+    out.push(`<div class="lsr"><b>Storm reports, last 24 h</b>${reps.slice(0,6).map(p=>`<div>⚠ ${esc(p.typetext)}${p.magnitude?` ${esc(p.magnitude)} ${esc(p.unit||'')}`:''} · ${esc(p.city)} · ${new Date(p.valid).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}${p.remark?` — ${esc(p.remark)}`:''}</div>`).join('')}</div>`);
+  return out.join('');
+}
+function gaugeCard(g){
+  const ob = g.status.observed, cat = ob.floodCategory, cats = gaugeInfo[g.lid]?.cats||{};
+  const flood = cats.minor?.stage>0 ? cats.minor.stage : null;
+  const day = (g.obs||[]).filter(p=>p[0]<=Date.now()-20*3600e3).pop();
+  const delta = day ? ob.primary-day[1] : null;
+  const trend = delta==null ? '' : Math.abs(delta)<0.2 ? '→ steady' : delta>0 ? `↑ up ${delta.toFixed(1)} ft in 24 h` : `↓ down ${(-delta).toFixed(1)} ft in 24 h`;
+  const crest = (g.fc||[]).reduce((a,p)=>!a||p[1]>a[1]?p:a, null);
+  const crestTxt = crest && crest[1]>ob.primary+0.1 ? `Forecast crest ${crest[1].toFixed(1)} ft ${new Date(crest[0]).toLocaleString([], {weekday:'short', hour:'numeric'})}` : g.fc?.length ? 'No rise forecast' : '';
+  const name = g.name.replace(/^(.*?) at \1 at /, '$1 at ');
+  const [river, place] = name.includes(' at ') ? [name.split(' at ')[0], name.split(' at ').slice(1).join(' at ')] : [name, ''];
+  const now = Date.now();
+  const chart = lineChart({obs:g.obs||[], fc:g.fc?.length && g.obs?.length ? [g.obs[g.obs.length-1], ...g.fc] : [],
+    t0:now-7*864e5, t1:Math.max(now+864e5, ...(g.fc||[]).map(p=>p[0])), w:300, h:90, unit:' ft', minSpan:2,
+    ref: flood!=null ? {y:flood, label:`Flood ${flood} ft`} : null, hilo:false, group:'r', label:`${name} stage`});
+  return `<div class="card gauge">
+    <h3>${esc(place||river)}</h3><div class="riv">${esc(river)} · ${esc(g.state?.abbreviation||'')} · ${esc(g.lid)}</div>
+    <div class="stage"><span class="big">${ob.primary.toFixed(1)} ft</span><span class="pill fl-${cat}">${FLOOD_NAME[cat]||cat}</span></div>
+    <div class="stats"><span><b>Flood stage</b>${flood!=null?flood+' ft':'—'}</span>${trend?`<span>${trend}</span>`:''}${crestTxt?`<span>${crestTxt}</span>`:''}</div>
+    ${chart}
+    <div class="sub">Reading <span data-ago="${+new Date(ob.validTime)}">${ago(+new Date(ob.validTime))}</span> · <a href="https://water.noaa.gov/gauges/${esc(g.lid)}" target="_blank" rel="noopener">Details at water.noaa.gov ↗</a></div></div>`;
+}
+function renderRivers(){
+  const flooding = rivers.list.filter(g=>FLOOD_ORDER[g.status.observed.floodCategory]>=2).length;
+  const action = rivers.list.filter(g=>g.status.observed.floodCategory==='action').length;
+  document.getElementById('riverFlag').innerHTML = flooding ? ` <span class="pill fl-moderate flagcount">${flooding} flooding</span>` : action ? ` <span class="pill fl-action flagcount">${action} action</span>` : '';
+  if (screen!=='rivers') return;
+  clearCharts('r');
+  document.getElementById('rvSummary').textContent = rivers.list.length ? `${rivers.list.length} gauges · ${flooding} flooding · ${action} at action stage` : '';
+  document.getElementById('rvGrid').innerHTML = rivers.list.length ? rivers.list.map(gaugeCard).join('')
+    : `<div class="loading">${rivers.loading ? 'Loading river gauges…' : rivers.err ? 'Error: '+esc(rivers.err) : 'No gauge data.'}</div>`;
+  document.getElementById('rvRefresh').disabled = rivers.loading;
+  tick();
+}
+function updateHistInfo(){
+  const sids = Object.keys(hist), n = sids.reduce((s,k)=>s+hist[k].length, 0);
+  const oldest = Math.min(...sids.map(k=>hist[k][0]?.[0]||Infinity));
+  document.getElementById('histInfo').textContent = n ? `${n.toLocaleString()} readings from ${sids.length} stations, back to ${new Date(oldest).toLocaleDateString()}.` : 'No readings saved yet.';
 }
 function render(){
   document.getElementById('main').innerHTML = statePanel('TN')+statePanel('AR')+statePanel('MS')+alertsPanel();
+  updateHistInfo();
   if (STATES[screen]){
+    clearCharts('d');
+    document.querySelectorAll('#trendSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.trend===prefs.trendDays));
     const list = COUNTIES.filter(c=>c.st===screen);
     document.getElementById('dTitle').textContent = `${STATES[screen]} — ${list.length} counties`;
     document.getElementById('dGrid').innerHTML = list.map(countyCard).join('');
@@ -539,6 +994,7 @@ function tick(){
   document.querySelectorAll('[data-ago]').forEach(el=>el.textContent = ago(+el.dataset.ago));
   document.querySelectorAll('[data-until]').forEach(el=>{ if(el.textContent!=='loading…') el.textContent = until(+el.dataset.until); });
   if (STATES[screen]){ const m = stMeta[screen]; document.getElementById('dStats').textContent = m.loading ? 'Loading…' : `Fetched ${ago(m.fetchedAt)} · next in ${until(m.nextAt)}`; }
+  if (screen==='rivers') document.getElementById('rvStats').textContent = rivers.loading ? 'Loading…' : rivers.err ? 'Error: '+rivers.err : `Fetched ${ago(rivers.fetchedAt)} · next in ${until(rivers.nextAt)}`;
   if (screen==='radar') document.getElementById('rStats').textContent = radarMeta.err ? 'Error: '+radarMeta.err : `Image loaded ${ago(radarMeta.loadedAt)} · next in ${until(radarMeta.nextAt)}`;
 }
 function renderRadarControls(){
@@ -557,7 +1013,10 @@ function showScreen(s, fips){
   else document.getElementById('dGrid').scrollTop = 0;
   document.getElementById('detail').classList.toggle('show', !!STATES[s]);
   document.getElementById('radar').classList.toggle('show', s==='radar');
+  document.getElementById('rivers').classList.toggle('show', s==='rivers');
+  document.getElementById('tip').style.display = 'none';
   if (s==='radar'){ renderRadarControls(); refreshRadar(); }
+  if (s==='rivers'){ renderRivers(); if (!rivers.fetchedAt) refreshRivers(); }
   render();
 }
 
@@ -578,6 +1037,7 @@ document.addEventListener('click', e=>{
   const mode = t.closest('[data-mode]'); if (mode){ prefs.radarMode = mode.dataset.mode; savePrefs(); renderRadarControls(); refreshRadar(); return; }
   const th = t.closest('[data-theme]'); if (th){ prefs.theme = th.dataset.theme; savePrefs(); applyTheme(); return; }
   const ts = t.closest('[data-test]'); if (ts){ playAlertSound(ts.dataset.test, true); return; }
+  const tr = t.closest('[data-trend]'); if (tr){ prefs.trendDays = +tr.dataset.trend; savePrefs(); render(); return; }
 });
 // Escape, right-click and the mouse back button all go back one level: settings drawer, then full screen.
 function goBack(){
@@ -594,6 +1054,9 @@ document.getElementById('exitApp').onclick = ()=>postHost('exit');
 document.getElementById('testPopup').onclick = ()=>postHost('notify', {title:'Test: Tornado Warning',
   body:'This is a test popup from WeatherFeeds. No alert is in effect.', severity:'Extreme'});
 document.getElementById('openRadar').onclick = ()=>showScreen('radar');
+document.getElementById('openRivers').onclick = ()=>showScreen('rivers');
+document.getElementById('rvRefresh').onclick = refreshRivers;
+document.getElementById('openHistory').onclick = ()=>postHost('openHistory');
 // On a state screen the highlight follows the mouse from county to county.
 document.getElementById('dGrid').addEventListener('mouseover', e=>{
   const card = e.target.closest('[data-card]');
@@ -640,6 +1103,11 @@ bind('apiKey','apiKey','text');
 bind('topmost','topmost','check',()=>postHost('topmost', prefs.topmost));
 bind('minToTray','minToTray','check',()=>postHost('tray', prefs.minToTray));
 bind('popups','popups','check');
+bind('histDays','histDays','num',()=>{
+  postHost('histRetention', prefs.histDays);
+  for (const s in hist) mergeHist(s, []);   // applies the new cutoff
+  saveHistLocal(); render();
+});
 
 // ---------- Scheduling ----------
 setInterval(()=>{
@@ -648,6 +1116,7 @@ setInterval(()=>{
   if (!alertMeta.loading && alertMeta.nextAt && now>=alertMeta.nextAt) refreshAlerts();
   for (const s in STATES){ const m = stMeta[s]; if (!m.loading && m.nextAt && now>=m.nextAt) refreshState(s); }
   if (screen==='radar' && radarMeta.nextAt && now>=radarMeta.nextAt) refreshRadar();
+  if (!rivers.loading && rivers.nextAt && now>=rivers.nextAt) refreshRivers();
   if (prefs.sound && prefs.repeatExtreme && now-lastRepeat>=30000 && alerts.some(a=>a.severity==='Extreme' && !acked.has(a.id))){
     lastRepeat = now; playAlertSound('Extreme');
   }
@@ -663,7 +1132,8 @@ if (IS_APP){
 applyTheme(); showUA(); updateSoundBanner();
 render();
 refreshAlerts();
-for (const s of ['TN','AR','MS']) refreshState(s);
+loadHistory().then(()=>{ for (const s of ['TN','AR','MS']) refreshState(s); });
+refreshRivers();
 </script>
 </body>
 </html>

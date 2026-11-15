@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     static readonly string SettingsPath = Path.Combine(DataDir, "settings.json");
 
     readonly HostSettings settings = HostSettings.Load(SettingsPath);
+    readonly HistoryStore history = new(Path.Combine(DataDir, "history"));
     readonly string? selfTestOut;
     readonly bool demo;
     readonly HashSet<string> wireUserAgents = [];
@@ -149,6 +150,22 @@ public partial class MainWindow : Window
                     break;
                 case "exit":
                     ConfirmExit();
+                    break;
+                case "histAppend":
+                    history.Append(value.GetProperty("station").GetString(), value.GetProperty("rows"), settings.HistoryDays);
+                    break;
+                case "histLoad":
+                    Web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(
+                        new { type = "histData", data = history.LoadAll(settings.HistoryDays) }));
+                    break;
+                case "histRetention":
+                    settings.HistoryDays = Math.Clamp(value.GetInt32(), 1, 3650);
+                    settings.Save(SettingsPath);
+                    history.TrimAll(settings.HistoryDays);
+                    break;
+                case "openHistory":
+                    Directory.CreateDirectory(history.Directory);
+                    Process.Start(new ProcessStartInfo("explorer.exe", $"\"{history.Directory}\"") { UseShellExecute = true });
                     break;
             }
         }
@@ -304,11 +321,14 @@ public partial class MainWindow : Window
         string report;
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(30));
+            await Task.Delay(TimeSpan.FromSeconds(45));
             var page = await Web.CoreWebView2.ExecuteScriptAsync(
                 "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
                 " errors: Object.values(data).filter(d => d.err).length, alerts: alerts.length, alertErr: alertMeta.err," +
-                " audio: actx ? actx.state : 'none', banner: document.getElementById('soundBanner').className})");
+                " audio: actx ? actx.state : 'none', banner: document.getElementById('soundBanner').className," +
+                " grids: Object.values(data).filter(d => d.grid).length, historyStations: Object.keys(hist).length," +
+                " historyRows: Object.values(hist).reduce((n, r) => n + r.length, 0), spcDays: spc.days.filter(Boolean).length," +
+                " climateSites: Object.keys(climate).length, rivers: rivers.list.length, riverErr: rivers.err, lsr: lsr.length})");
             page = JsonSerializer.Deserialize<string>(page) ?? "null";
             report = JsonSerializer.Serialize(new
             {
