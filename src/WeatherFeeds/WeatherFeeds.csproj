@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WeatherFeeds</AssemblyName>
+    <RootNamespace>WeatherFeeds</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>WeatherFeeds</Product>
+    <Description>Memphis DMA weather dashboard powered by api.weather.gov</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The dashboard UI is embedded in the exe and extracted to %LOCALAPPDATA%\WeatherFeeds\web at startup. -->
+    <EmbeddedResource Include="wwwroot\**\*" LogicalName="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+  </ItemGroup>
+
+</Project>
