@@ -625,11 +625,19 @@ const obsRow = p => [+new Date(p.timestamp), r1(p.temperature?.value), r1(p.dewp
 async function fetchHistory(sid){
   if (Date.now()-(histFetchedAt[sid]||0) < 10*60000) return;
   histFetchedAt[sid] = Date.now();
-  const rows = hist[sid]||[];
-  const last = rows.length ? rows[rows.length-1][0] : 0;
-  const start = new Date(Math.max(last+1000, Date.now()-7*864e5)).toISOString().replace(/\.\d+Z$/,'Z');
-  const j = await nws(`${API}/stations/${sid}/observations?start=${start}`, 2);
-  const fresh = j.features.map(f=>obsRow(f.properties)).filter(r=>r[1]!=null);
+  // NWS keeps 7 days. If our history doesn't reach back that far yet, ask for the whole window (already-saved
+  // readings are de-duplicated); otherwise just ask for what's new since the last saved reading.
+  const rows = hist[sid]||[], weekAgo = Date.now()-7*864e5;
+  const first = rows.length ? rows[0][0] : Infinity, last = rows.length ? rows[rows.length-1][0] : 0;
+  const from = first > weekAgo + 2*3600e3 ? weekAgo : Math.max(last+1000, weekAgo);
+  const start = new Date(from).toISOString().replace(/\.\d+Z$/,'Z');
+  // Results come back newest first, at most 500 per page; follow the "next" links to get them all.
+  let url = `${API}/stations/${sid}/observations?start=${start}`, fresh = [];
+  for (let page = 0; url && page < 10; page++){
+    const j = await nws(url, 2);
+    fresh = fresh.concat(j.features.map(f=>obsRow(f.properties)).filter(r=>r[1]!=null));
+    url = j.features.length ? j.pagination?.next : null;
+  }
   if (mergeHist(sid, fresh)){ postHost('histAppend', {station:sid, rows:fresh}); saveHistLocal(); }
 }
 async function refreshHistory(st){
