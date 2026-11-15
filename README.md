@@ -16,7 +16,14 @@ A Windows 10/11 weather dashboard for the **Memphis DMA** (27 counties in Tennes
   - Extreme alerts can repeat every 30 s until you acknowledge them.
   - When NWS updates an alert you've already acknowledged, the update stays acknowledged and doesn't sound again.
   - The sounds are made in code and are deliberately **not** EAS tones.
-- **County cards** (open a state, or click a county row to jump straight to that county; the highlight follows the mouse) also show:
+- **Zoomed county view:** click a county card for a full-screen view with large type. It shows:
+  - current conditions, including feels-like, dew point, pressure and visibility
+  - alerts and all the extra details below
+  - a wide temperature chart
+  - the complete 7-day forecast text
+
+  Use ‹ › or the arrow keys for the previous or next county, and right-click or Esc to go back.
+- **County cards:** open a state, or click a county row to jump straight to that county. The app moves the mouse pointer onto it, and the highlight then follows the mouse. The cards also show:
   - **Temperature trend chart** along the bottom: 24 h, 3, 7 or 30 days of observed temperature, plus the next 24 h of forecast (dashed). Hover over it for exact readings.
   - **Observed trends:** the last 24 h high and low, peak gust, and pressure with its 3-hour tendency.
   - **Next 24 h amounts:** rain, snow, ice, peak gusts, thunder chance and feels-like range, from the NWS forecast grid.

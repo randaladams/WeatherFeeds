@@ -131,6 +131,33 @@ td .spc{margin-left:6px}
 .chart.hover .xh,.chart.hover .xd{display:block}
 #tip{position:fixed;pointer-events:none;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.25);z-index:40;display:none;white-space:nowrap}
 #tip b{font-size:13px}
+/* ---------- Zoomed county view: same data, larger type ---------- */
+#dGrid .card{cursor:zoom-in}
+#zoom .zbody{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;font-size:16px}
+#zoom .zrow{display:grid;grid-template-columns:minmax(340px,1fr) 2fr;gap:14px}
+#zoom .card{padding:16px 20px}
+#zoom h3{margin:0 0 10px;font-size:18px}
+#zoom .seat{font-size:14px}
+#zoom .now .big{font-size:84px;line-height:1}
+#zoom .zcond{font-size:24px}
+#zoom .now .sub{font-size:14px}
+#zoom .facts{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-top:12px}
+#zoom .facts b{display:block;color:var(--muted);font-weight:500;font-size:13px}
+#zoom .facts div{font-size:19px}
+#zoom .stats{font-size:15px;gap:6px 20px;padding-top:10px;margin-top:10px}
+#zoom .stats b{font-size:14px}
+#zoom .spc{font-size:13px;line-height:20px;padding:0 8px}
+#zoom .lsr{font-size:15px}
+#zoom .alert .ev{font-size:17px}
+#zoom .alert{margin:8px 0}
+#zoom .trend{border-top:0;margin-top:0;padding-top:0}
+#zoom .trend .ttl{font-size:15px}
+#zoom .zfc{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+#zoom .zper{background:var(--panel2);border-radius:8px;padding:10px 14px;font-size:15px;line-height:1.45}
+#zoom .zph{display:flex;gap:12px;align-items:baseline;margin-bottom:4px}
+#zoom .zph .tt{font-size:22px;font-weight:600}
+.chart.big .axis,.chart.big .mk-l,.chart.big .ref-l{font-size:15px}
+@media (max-width:900px){#zoom .zrow{grid-template-columns:1fr}}
 /* ---------- Rivers ---------- */
 #rivers .grid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-content:start}
 .gauge h3{margin:0;font-size:15px}
@@ -200,6 +227,20 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <button class="btn" id="rRefresh">⟳ Refresh</button>
   </header>
   <div class="rbody"><img id="rImg" alt="NWS radar image"></div>
+</div>
+
+<div id="zoom" class="screen">
+  <header>
+    <button class="btn" id="zBack">← <span id="zBackLbl">State</span></button>
+    <button class="btn" data-step="-1" title="Previous county (← key)">‹</button>
+    <h1 id="zTitle"></h1>
+    <button class="btn" data-step="1" title="Next county (→ key)">›</button>
+    <span class="seg" title="Temperature trend range"><button data-trend="1">24 h</button><button data-trend="3">3 days</button><button data-trend="7">7 days</button><button data-trend="30">30 days</button></span>
+    <span class="spacer"></span>
+    <span class="clock" id="zStats"></span>
+    <button class="btn" id="zRefresh">⟳ Refresh</button>
+  </header>
+  <div class="zbody" id="zBody"></div>
 </div>
 
 <div id="rivers" class="screen">
@@ -754,7 +795,7 @@ function downsample(pts, max){
   return out;
 }
 const clearCharts = group => { for (const k of charts.keys()) if (k[0]===group) charts.delete(k); };
-function lineChart({obs, fc, t0, t1, w=400, h=130, unit='°', minSpan=10, ref=null, axes=true, hilo=true, label, group='d'}){
+function lineChart({obs, fc, t0, t1, w=400, h=130, unit='°', minSpan=10, ref=null, axes=true, hilo=true, label, group='d', cls=''}){
   const pad = axes ? {l:30, r:8, t:16, b:18} : {l:4, r:4, t:6, b:6};
   const all = obs.concat(fc);
   if (all.length < 2) return '';
@@ -791,9 +832,9 @@ function lineChart({obs, fc, t0, t1, w=400, h=130, unit='°', minSpan=10, ref=nu
   const id = group+(++chartSeq);
   charts.set(id, {pts:obs.map(p=>[...p,0]).concat(fc.map(p=>[...p,1])), X, Y, t0, t1, pad, w, unit});
   svg += `<line class="xh" y1="${pad.t}" y2="${h-pad.b}"/><circle class="xd" r="4"/>`;
-  return `<svg class="chart" data-chart="${id}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label||'')}">${svg}</svg>`;
+  return `<svg class="chart ${cls}" data-chart="${id}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label||'')}">${svg}</svg>`;
 }
-function trendChart(c){
+function trendChart(c, big=false){
   const d = data[c.fips]||{}, sid = d.obs?.sid, now = Date.now();
   const days = prefs.trendDays, t0 = now - days*864e5, t1 = now + 24*3600e3;
   const raw = ((sid && hist[sid])||[]).filter(r=>r[0]>=t0 && r[1]!=null).map(r=>[r[0], r[1]*9/5+32]);
@@ -803,7 +844,8 @@ function trendChart(c){
   if (obs.length && fc.length) fc.unshift(obs[obs.length-1]);
   const span = days===1 ? 'past 24 hours' : `past ${days} days`;
   const head = `<div class="ttl"><span>Temperature · ${span} + next 24 h</span><span class="key"><span><i></i>observed</span><span><i class="dash"></i>forecast</span></span></div>`;
-  const svg = lineChart({obs, fc, t0, t1, unit:'°', label:`${c.name} County temperature, ${span} and next 24 hours`});
+  const svg = lineChart({obs, fc, t0, t1, unit:'°', label:`${c.name} County temperature, ${span} and next 24 hours`,
+    ...(big ? {w:1000, h:280, cls:'big'} : {})});
   const have = raw.length ? (now-raw[0][0])/864e5 : 0;
   const note = days>1 && have < days-0.5 ? `<div class="sub">${have<0.1?'Collecting history…':`History so far: ${have<1?Math.round(have*24)+' hours':have.toFixed(1)+' days'}`}</div>` : '';
   return `<div class="trend">${head}${svg || '<div class="sub">Collecting history…</div>'}${note}</div>`;
@@ -938,6 +980,35 @@ function countyExtras(c){
     out.push(`<div class="lsr"><b>Storm reports, last 24 h</b>${reps.slice(0,6).map(p=>`<div>⚠ ${esc(p.typetext)}${p.magnitude?` ${esc(p.magnitude)} ${esc(p.unit||'')}`:''} · ${esc(p.city)} · ${new Date(p.valid).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}${p.remark?` — ${esc(p.remark)}`:''}</div>`).join('')}</div>`);
   return out.join('');
 }
+// ---------- Zoomed single-county view ----------
+let zoomFips = null;
+function zoomView(c){
+  const d = data[c.fips]||{}, o = d.obs, al = alertsFor(c.fips);
+  const t = o ? cToF(o.temperature.value) : null, obsTs = o ? +new Date(o.timestamp) : 0;
+  const feels = o?.windChill?.value!=null ? cToF(o.windChill.value) : o?.heatIndex?.value!=null ? cToF(o.heatIndex.value) : t;
+  const vis = o?.visibility?.value;
+  const facts = [
+    ['Wind', o ? `${kmhToMph(o.windSpeed?.value) ? compass(o.windDirection?.value)+' '+kmhToMph(o.windSpeed.value)+' mph' : 'Calm'}${o.windGust?.value?`, gusts ${kmhToMph(o.windGust.value)} mph`:''}` : '—'],
+    ['Feels like', feels!=null ? feels+'°' : '—'],
+    ['Humidity', o?.relativeHumidity?.value!=null ? Math.round(o.relativeHumidity.value)+'%' : '—'],
+    ['Dew point', o?.dewpoint?.value!=null ? cToF(o.dewpoint.value)+'°' : '—'],
+    ['Pressure', o?.barometricPressure?.value ? paToInHg(o.barometricPressure.value).toFixed(2)+' inHg' : '—'],
+    ['Visibility', vis!=null ? (vis/1609.34).toFixed(vis<16000?1:0)+' mi' : '—'],
+  ];
+  const periods = (d.fc?.periods||[]).map(p=>`<div class="zper"><div class="zph"><b>${esc(p.name)}</b><span class="tt">${p.temperature}°</span>${p.probabilityOfPrecipitation?.value?`<span>💧 ${p.probabilityOfPrecipitation.value}%</span>`:''}</div>${esc(p.detailedForecast||p.shortForecast)}</div>`).join('');
+  return `<div class="zrow">
+      <section class="card znow">
+        <div class="seat">${esc(c.seat)} · NWS ${meta[c.fips]?.office||''} · station ${o?.sid||'—'}</div>
+        <div class="now"><span class="big">${t!=null?t+'°':'—'}</span><div><div class="zcond">${esc(o?.textDescription||'')}</div>
+          <div class="sub">Observed <span class="${ageClass(obsTs,75,150)}" data-ago="${obsTs}">${ago(obsTs)}</span></div></div></div>
+        <div class="facts">${facts.map(([k,v])=>`<div><b>${k}</b>${v}</div>`).join('')}</div>
+        ${d.err?`<div class="err">Error: ${esc(d.err)}</div>`:''}
+      </section>
+      <section class="card">${al.length ? `<h3>Alerts</h3>${al.map(alertCard).join('')}` : ''}${countyExtras(c) || '<div class="sub">Loading details…</div>'}</section>
+    </div>
+    <section class="card">${trendChart(c, true)}</section>
+    <section class="card"><h3>Forecast</h3><div class="zfc">${periods || '<div class="sub">Loading…</div>'}</div></section>`;
+}
 function gaugeCard(g){
   const ob = g.status.observed, cat = ob.floodCategory, cats = gaugeInfo[g.lid]?.cats||{};
   const flood = cats.minor?.stage>0 ? cats.minor.stage : null;
@@ -979,9 +1050,17 @@ function updateHistInfo(){
 function render(){
   document.getElementById('main').innerHTML = statePanel('TN')+statePanel('AR')+statePanel('MS')+alertsPanel();
   updateHistInfo();
+  document.querySelectorAll('button[data-trend]').forEach(b=>b.classList.toggle('on', +b.dataset.trend===prefs.trendDays));
+  if (screen==='county'){
+    clearCharts('d');
+    const c = BY_FIPS[zoomFips];
+    document.getElementById('zTitle').textContent = `${c.name} County, ${c.st}`;
+    document.getElementById('zBackLbl').textContent = STATES[c.st];
+    document.getElementById('zBody').innerHTML = zoomView(c);
+    document.getElementById('zRefresh').disabled = stMeta[c.st].loading;
+  }
   if (STATES[screen]){
     clearCharts('d');
-    document.querySelectorAll('#trendSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.trend===prefs.trendDays));
     const list = COUNTIES.filter(c=>c.st===screen);
     document.getElementById('dTitle').textContent = `${STATES[screen]} — ${list.length} counties`;
     document.getElementById('dGrid').innerHTML = list.map(countyCard).join('');
@@ -994,6 +1073,7 @@ function tick(){
   document.querySelectorAll('[data-ago]').forEach(el=>el.textContent = ago(+el.dataset.ago));
   document.querySelectorAll('[data-until]').forEach(el=>{ if(el.textContent!=='loading…') el.textContent = until(+el.dataset.until); });
   if (STATES[screen]){ const m = stMeta[screen]; document.getElementById('dStats').textContent = m.loading ? 'Loading…' : `Fetched ${ago(m.fetchedAt)} · next in ${until(m.nextAt)}`; }
+  if (screen==='county'){ const m = stMeta[BY_FIPS[zoomFips].st]; document.getElementById('zStats').textContent = m.loading ? 'Loading…' : `Fetched ${ago(m.fetchedAt)} · next in ${until(m.nextAt)}`; }
   if (screen==='rivers') document.getElementById('rvStats').textContent = rivers.loading ? 'Loading…' : rivers.err ? 'Error: '+rivers.err : `Fetched ${ago(rivers.fetchedAt)} · next in ${until(rivers.nextAt)}`;
   if (screen==='radar') document.getElementById('rStats').textContent = radarMeta.err ? 'Error: '+radarMeta.err : `Image loaded ${ago(radarMeta.loadedAt)} · next in ${until(radarMeta.nextAt)}`;
 }
@@ -1008,10 +1088,15 @@ function selectCard(fips){
 }
 function showScreen(s, fips){
   screen = s;
-  selectedCounty = fips || null;
-  if (fips) requestAnimationFrame(()=>document.querySelector(`#dGrid [data-card="${fips}"]`)?.scrollIntoView({block:'center'}));
-  else document.getElementById('dGrid').scrollTop = 0;
+  if (s==='county'){ zoomFips = fips; }
+  else {
+    selectedCounty = fips || null;
+    hoverLock = fips ? [{...lastMouse}] : null;
+    if (fips) setTimeout(()=>pointAtCard(fips), 0);    // after render() below has built the cards
+    else document.getElementById('dGrid').scrollTop = 0;
+  }
   document.getElementById('detail').classList.toggle('show', !!STATES[s]);
+  document.getElementById('zoom').classList.toggle('show', s==='county');
   document.getElementById('radar').classList.toggle('show', s==='radar');
   document.getElementById('rivers').classList.toggle('show', s==='rivers');
   document.getElementById('tip').style.display = 'none';
@@ -1031,6 +1116,9 @@ document.addEventListener('click', e=>{
   const r = t.closest('[data-refresh]'); if (r){ r.dataset.refresh==='alerts' ? refreshAlerts() : refreshState(r.dataset.refresh); return; }
   const a = t.closest('[data-alert]'); if (a){ const id = a.dataset.alert; openAlerts.has(id)?openAlerts.delete(id):openAlerts.add(id); a.classList.toggle('open'); return; }
   const row = t.closest('[data-county]'); if (row){ const f = row.dataset.county; showScreen(BY_FIPS[f].st, f); return; }
+  const card = t.closest('#dGrid [data-card]'); if (card){ showScreen('county', card.dataset.card); return; }
+  const step = t.closest('[data-step]'); if (step){ stepCounty(+step.dataset.step); return; }
+  if (t.closest('#zBack')){ goBack(); return; }
   const p = t.closest('[data-state]'); if (p){ showScreen(p.dataset.state); return; }
   if (t.closest('[data-close]')){ showScreen(null); return; }
   const site = t.closest('[data-site]'); if (site){ prefs.radarSite = site.dataset.site; savePrefs(); renderRadarControls(); refreshRadar(); return; }
@@ -1042,9 +1130,21 @@ document.addEventListener('click', e=>{
 // Escape, right-click and the mouse back button all go back one level: settings drawer, then full screen.
 function goBack(){
   if (document.body.classList.contains('settings-open')) document.body.classList.remove('settings-open');
+  else if (screen==='county') showScreen(BY_FIPS[zoomFips].st, zoomFips);
   else if (screen) showScreen(null);
 }
-document.addEventListener('keydown', e=>{ if (e.key==='Escape') goBack(); });
+function stepCounty(dir){
+  const list = COUNTIES.filter(c=>c.st===BY_FIPS[zoomFips].st);
+  const i = list.findIndex(c=>c.fips===zoomFips);
+  showScreen('county', list[(i+dir+list.length)%list.length].fips);
+}
+document.addEventListener('keydown', e=>{
+  if (e.key==='Escape') goBack();
+  if (screen==='county' && !e.target.closest('input, select, textarea')){
+    if (e.key==='ArrowLeft') stepCounty(-1);
+    if (e.key==='ArrowRight') stepCounty(1);
+  }
+});
 document.addEventListener('contextmenu', e=>{
   if (e.target.closest('input, textarea, select')) return;   // keep copy/paste menus in text fields
   e.preventDefault(); goBack();
@@ -1057,12 +1157,33 @@ document.getElementById('openRadar').onclick = ()=>showScreen('radar');
 document.getElementById('openRivers').onclick = ()=>showScreen('rivers');
 document.getElementById('rvRefresh').onclick = refreshRivers;
 document.getElementById('openHistory').onclick = ()=>postHost('openHistory');
-// On a state screen the highlight follows the mouse from county to county.
-document.getElementById('dGrid').addEventListener('mouseover', e=>{
-  const card = e.target.closest('[data-card]');
+// On a state screen the highlight follows the mouse from county to county. After a county is opened
+// the highlight is locked to it until the mouse really moves: scrolling the card into view (or data
+// refreshing) slides other cards under a still cursor, and the browser reports that as hovering them.
+let lastMouse = {x:-1, y:-1}, hoverLock = null;
+document.addEventListener('mousemove', e=>{
+  lastMouse = {x:e.clientX, y:e.clientY};
+  if (!STATES[screen]) return;
+  if (hoverLock){
+    if (hoverLock.some(p=>Math.hypot(e.clientX-p.x, e.clientY-p.y) < 12)) return;
+    hoverLock = null;
+  }
+  const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('#dGrid [data-card]');
   if (card && card.dataset.card !== selectedCounty) selectCard(card.dataset.card);
 });
+// Put the mouse pointer on the opened county's card (the Windows app moves the real cursor).
+function pointAtCard(fips){
+  const card = document.querySelector(`#dGrid [data-card="${fips}"]`);
+  if (!card) return;
+  card.scrollIntoView({block:'center'});
+  const r = card.getBoundingClientRect();
+  const x = Math.round(r.left + Math.min(r.width/2, 160)), y = Math.round(r.top + 28);
+  // Locked near both where the pointer was and where the app puts it, until the user moves away.
+  hoverLock = [{...lastMouse}, {x, y}];
+  postHost('cursor', {x, y});
+}
 document.getElementById('dRefresh').onclick = ()=>refreshState(screen);
+document.getElementById('zRefresh').onclick = ()=>refreshState(BY_FIPS[zoomFips].st);
 document.getElementById('rRefresh').onclick = refreshRadar;
 document.getElementById('refreshAll').onclick = ()=>{ refreshAlerts(); for (const s in STATES) refreshState(s); if (screen==='radar') refreshRadar(); };
 document.getElementById('openSettings').onclick = ()=>document.body.classList.add('settings-open');

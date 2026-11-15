@@ -151,6 +151,15 @@ public partial class MainWindow : Window
                 case "exit":
                     ConfirmExit();
                     break;
+                case "cursor":
+                    // Page coordinates (CSS px) -> screen pixels; only while the user is working in this window.
+                    if (IsActive && WindowState != WindowState.Minimized)
+                    {
+                        var zoom = Web.ZoomFactor;
+                        var p = Web.PointToScreen(new Point(value.GetProperty("x").GetDouble() * zoom, value.GetProperty("y").GetDouble() * zoom));
+                        SetCursorPos((int)Math.Round(p.X), (int)Math.Round(p.Y));
+                    }
+                    break;
                 case "histAppend":
                     history.Append(value.GetProperty("station").GetString(), value.GetProperty("rows"), settings.HistoryDays);
                     break;
@@ -260,6 +269,9 @@ public partial class MainWindow : Window
     }
 
     // ---------------------------------------------------------------- Helpers
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool SetCursorPos(int x, int y);
 
     static readonly Dictionary<string, string> ContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
