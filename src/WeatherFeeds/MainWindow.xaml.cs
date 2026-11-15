@@ -17,6 +17,12 @@ public partial class MainWindow : Window
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WeatherFeeds");
     static readonly string SettingsPath = Path.Combine(DataDir, "settings.json");
 
+    // "1.5.0+<git commit>" -> Version "1.5.0", Build "abc1234" (the commit is added by the .NET SDK when built from git).
+    static readonly string InfoVersion = Assembly.GetExecutingAssembly()
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+    static readonly string Version = InfoVersion.Split('+')[0];
+    static readonly string Build = InfoVersion.Contains('+') ? InfoVersion.Split('+')[1][..Math.Min(7, InfoVersion.Split('+')[1].Length)] : "";
+
     readonly HostSettings settings = HostSettings.Load(SettingsPath);
     readonly HistoryStore history = new(Path.Combine(DataDir, "history"));
     readonly string? selfTestOut;
@@ -42,6 +48,7 @@ public partial class MainWindow : Window
         // --demo: inject sample alerts (labelled [DEMO]) to try out the alert panel, sounds and popups.
         demo = args.Contains("--demo");
 
+        Title = $"WeatherFeeds {Version} – Memphis DMA";
         RestoreWindowPlacement();
         Topmost = settings.Topmost;
         CreateTrayIcon();
@@ -112,7 +119,7 @@ public partial class MainWindow : Window
             };
         }
         await core.AddScriptToExecuteOnDocumentCreatedAsync(
-            $"window.WF_HOST = {JsonSerializer.Serialize(new { userAgent = settings.UserAgent })};");
+            $"window.WF_HOST = {JsonSerializer.Serialize(new { userAgent = settings.UserAgent, version = Version, build = Build })};");
         core.Navigate($"https://{AppHost}/index.html{(demo ? "?demo" : "")}");
     }
 
@@ -193,7 +200,7 @@ public partial class MainWindow : Window
         tray = new Forms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "WeatherFeeds – Memphis DMA",
+            Text = $"WeatherFeeds {Version} – Memphis DMA",
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -335,7 +342,8 @@ public partial class MainWindow : Window
         {
             await Task.Delay(TimeSpan.FromSeconds(45));
             var page = await Web.CoreWebView2.ExecuteScriptAsync(
-                "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
+                "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, version: document.querySelector('.ver').textContent," +
+                " about: document.getElementById('aboutVersion').textContent, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
                 " errors: Object.values(data).filter(d => d.err).length, alerts: alerts.length, alertErr: alertMeta.err," +
                 " audio: actx ? actx.state : 'none', banner: document.getElementById('soundBanner').className," +
                 " grids: Object.values(data).filter(d => d.grid).length, historyStations: Object.keys(hist).length," +
@@ -344,6 +352,7 @@ public partial class MainWindow : Window
             page = JsonSerializer.Deserialize<string>(page) ?? "null";
             report = JsonSerializer.Serialize(new
             {
+                title = Title,
                 navLog,
                 location = await Web.CoreWebView2.ExecuteScriptAsync("location.href + ' ' + document.readyState + ' ' + document.title"),
                 page = JsonDocument.Parse(page).RootElement,

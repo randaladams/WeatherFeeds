@@ -39,6 +39,7 @@ header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:
 header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.3px}
 header h1 small{color:var(--muted);font-weight:400;margin-left:8px;font-size:13px}
 .spacer{flex:1}
+.ver{display:inline-block;font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:0 7px;line-height:17px;font-variant-numeric:tabular-nums;vertical-align:middle;letter-spacing:0}
 .logo{width:26px;height:26px;vertical-align:-7px;margin-right:8px}
 .clock{font-variant-numeric:tabular-nums;color:var(--muted)}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
@@ -192,7 +193,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
 </head>
 <body>
 <header>
-  <h1><img src="icon.png" alt="" class="logo">WeatherFeeds <small>Memphis DMA · 27 counties · NWS api.weather.gov</small></h1>
+  <h1><img src="icon.png" alt="" class="logo">WeatherFeeds <span class="ver"></span> <small>Memphis DMA · 27 counties · NWS api.weather.gov</small></h1>
   <span class="spacer"></span>
   <button class="btn" id="openRadar">📡 Radar</button>
   <button class="btn" id="openRivers">🌊 Rivers<span id="riverFlag"></span></button>
@@ -211,7 +212,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <span class="seg" id="trendSeg" title="Temperature trend range"><button data-trend="1">24 h</button><button data-trend="3">3 days</button><button data-trend="7">7 days</button><button data-trend="30">30 days</button></span>
     <span class="spacer"></span>
     <span class="clock" id="dStats"></span>
-    <button class="btn" id="dRefresh">⟳ Refresh</button>
+    <button class="btn" id="dRefresh">⟳ Refresh</button><span class="ver"></span>
   </header>
   <div class="grid" id="dGrid"></div>
 </div>
@@ -224,7 +225,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <span class="seg" id="rMode"><button data-mode="loop">Loop</button><button data-mode="0">Latest</button></span>
     <span class="spacer"></span>
     <span class="clock" id="rStats"></span>
-    <button class="btn" id="rRefresh">⟳ Refresh</button>
+    <button class="btn" id="rRefresh">⟳ Refresh</button><span class="ver"></span>
   </header>
   <div class="rbody"><img id="rImg" alt="NWS radar image"></div>
 </div>
@@ -238,7 +239,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <span class="seg" title="Temperature trend range"><button data-trend="1">24 h</button><button data-trend="3">3 days</button><button data-trend="7">7 days</button><button data-trend="30">30 days</button></span>
     <span class="spacer"></span>
     <span class="clock" id="zStats"></span>
-    <button class="btn" id="zRefresh">⟳ Refresh</button>
+    <button class="btn" id="zRefresh">⟳ Refresh</button><span class="ver"></span>
   </header>
   <div class="zbody" id="zBody"></div>
 </div>
@@ -250,7 +251,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <span class="clock" id="rvSummary"></span>
     <span class="spacer"></span>
     <span class="clock" id="rvStats"></span>
-    <button class="btn" id="rvRefresh">⟳ Refresh</button>
+    <button class="btn" id="rvRefresh">⟳ Refresh</button><span class="ver"></span>
   </header>
   <div class="grid" id="rvGrid"></div>
 </div>
@@ -258,7 +259,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
 <div id="tip"></div>
 <div id="scrim"></div>
 <aside id="settings">
-  <header><h1>Settings</h1><span class="spacer"></span><button class="btn" id="closeSettings">✕</button></header>
+  <header><h1>Settings</h1><span class="ver"></span><span class="spacer"></span><button class="btn" id="closeSettings">✕</button></header>
   <div class="sb">
     <h3>Appearance</h3>
     <div class="row"><label>Theme</label>
@@ -304,6 +305,11 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <div class="hint web-only">Browsers don't let a web page set User-Agent, so this preview can't send it yet. The Windows app will send it with every request.</div>
     <div class="row"><label for="apiKey">API-Key (optional)</label><input type="password" id="apiKey" placeholder="leave blank — not required"></div>
     <div class="hint">NWS is only testing API keys on some endpoints, and none of the feeds used here need one. If you enter one, it's sent as an <code>API-Key</code> header.</div>
+
+    <h3>About</h3>
+    <div id="aboutVersion" style="font-size:15px;font-weight:600"></div>
+    <div class="hint">Data from the National Weather Service (api.weather.gov), the Storm Prediction Center, NOAA's National Water Prediction Service, ACIS climate data and the Iowa Environmental Mesonet.</div>
+    <div class="hint"><a href="https://github.com/randaladams/WeatherFeeds" target="_blank" rel="noopener" style="color:var(--accent)">github.com/randaladams/WeatherFeeds ↗</a></div>
   </div>
 </aside>
 
@@ -364,6 +370,15 @@ const postHost = (type, value) => { try{ HOST && HOST.postMessage({type, value})
 const prefs = Object.assign({}, DEFAULTS, store.get('wf.prefs.v1', {}));
 const savePrefs = ()=>store.set('wf.prefs.v1', prefs);
 // The Windows app passes its saved User-Agent in; recover the contact email from it if page storage was reset.
+// Version comes from the Windows app (set once in WeatherFeeds.csproj); the browser preview has none.
+const APP_VERSION = window.WF_HOST?.version || null, APP_BUILD = window.WF_HOST?.build || '';
+// Keep the default NWS app name in step with the version (a custom name is left alone).
+if (APP_VERSION && /^WeatherFeeds\/[\d.]+$/.test(prefs.appId)){ prefs.appId = 'WeatherFeeds/'+APP_VERSION; savePrefs(); }
+function showVersion(){
+  document.querySelectorAll('.ver').forEach(el=>{ el.textContent = APP_VERSION ? 'v'+APP_VERSION : 'preview'; el.title = APP_BUILD ? `build ${APP_BUILD}` : ''; });
+  document.getElementById('aboutVersion').textContent = APP_VERSION
+    ? `WeatherFeeds ${APP_VERSION}${APP_BUILD ? ` · build ${APP_BUILD}` : ''}` : 'WeatherFeeds browser preview (the version number comes from the Windows app)';
+}
 if (!prefs.contact && window.WF_HOST?.userAgent){
   const m = String(window.WF_HOST.userAgent).match(/^(.*?) \(([^()]*@[^()]*)\)$/);
   if (m){ prefs.appId = m[1]; prefs.contact = m[2]; savePrefs(); }
@@ -1176,8 +1191,10 @@ function pointAtCard(fips){
   const card = document.querySelector(`#dGrid [data-card="${fips}"]`);
   if (!card) return;
   card.scrollIntoView({block:'center'});
-  const r = card.getBoundingClientRect();
-  const x = Math.round(r.left + Math.min(r.width/2, 160)), y = Math.round(r.top + 28);
+  // Centre of the card, kept inside the visible part of the screen if the card is taller than the window.
+  const r = card.getBoundingClientRect(), grid = document.getElementById('dGrid').getBoundingClientRect();
+  const x = Math.round(r.left + r.width/2);
+  const y = Math.round(Math.min(Math.max(r.top + r.height/2, grid.top + 40), grid.bottom - 40));
   // Locked near both where the pointer was and where the app puts it, until the user moves away.
   hoverLock = [{...lastMouse}, {x, y}];
   postHost('cursor', {x, y});
@@ -1250,7 +1267,7 @@ if (IS_APP){
   postHost('tray', prefs.minToTray);
   if (!prefs.contact) document.body.classList.add('settings-open');   // first run: ask for the NWS contact email
 }
-applyTheme(); showUA(); updateSoundBanner();
+applyTheme(); showUA(); showVersion(); updateSoundBanner();
 render();
 refreshAlerts();
 loadHistory().then(()=>{ for (const s of ['TN','AR','MS']) refreshState(s); });
