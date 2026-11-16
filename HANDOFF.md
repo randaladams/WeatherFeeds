@@ -3,8 +3,8 @@
 **Use this to pick up the work on another machine or in a new session.** The [README](README.md) covers features, setup and usage. This file covers where things stand, how the code is put together, what was learned the hard way, and what's next.
 
 - **Last updated:** 2026-11-15
-- **Version:** 1.6.0
-- **Branch:** `main`, in sync with GitHub
+- **Version:** 1.6.1
+- **Branch:** `main`; 1.6.1 is committed locally, not pushed yet
 - **Working tree:** clean
 
 ---
@@ -24,6 +24,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 | 1.4 | Zoomed single-county view (large type, full forecast text, wide chart, ‹ › to step through counties); pointer moved onto the opened county |
 | 1.5 / 1.5.1 | Version shown in the title bar, tray, every screen header and Settings → About; pointer lands at the card's center; **fix:** history backfill now follows NWS paging to get all 7 days |
 | 1.6 | **`--collect` headless mode** and **central-share history** via `WeatherFeeds.shared.json`; clients read the share and never write to it; `install-collector.ps1` creates a scheduled task (NETWORK SERVICE by default) |
+| 1.6.1 | Settings → History says when the shared folder **can't be reached** (offline, wrong path, no Read access) instead of "collector hasn't run yet"; self-tested both cases |
 
 **Verified:**
 - **Every build** has passed `--selftest`: all 27 counties loading, NWS User-Agent seen on the wire, history, SPC, climate and rivers.
@@ -40,13 +41,13 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 
 ### Waiting on the user
 1. **Deploy to the station server.** Make the share (users: Read; the collector account: Modify on `history`). Copy `publish\*`, create `WeatherFeeds.shared.json` with a real `contactEmail`, then run `install-collector.ps1 -ExePath <local path>`. Check `LastTaskResult = 0`, and check that Settings → History shows "Collector last ran … on SERVER".
-2. **Yalobusha County, MS:** the user's original list said "Yalobusha/Coahoma". Coahoma is included and Yalobusha (FIPS 028161, seat Water Valley 34.1515, −89.6315) is **not**. Ask whether it belongs. Adding it is one line in `wwwroot/counties.js`.
+2. ~~Yalobusha County, MS~~: **decided 2026-11-15: leave it out.** The 27 counties stay as they are.
 
 ### Offered, not started
 3. **Interactive county map** with NWS radar overlaid: Census county boundaries plus NWS radar map layers. This is the biggest remaining idea.
 4. **Self-contained build** (`publish.ps1 -SelfContained`, about 70 MB) so PCs don't need the .NET 10 Desktop Runtime.
 5. **"Start with Windows"** option, so alert-critical PCs always have the app running.
-6. **Clearer Settings message when the share is unreachable.** Today it says "collector hasn't run yet".
+6. ~~Clearer Settings message when the share is unreachable~~: done in 1.6.1.
 7. **Small-size icon variant** (16/32 px) showing only the sun and cloud. The temperature/wind text in the artwork turns to mush at small sizes.
 8. **Archive forecasts** alongside observations, to compare forecast against actual later.
 

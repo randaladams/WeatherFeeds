@@ -1049,9 +1049,11 @@ function updateHistInfo(){
   if (!histShared){ el.style.display = 'none'; return; }
   el.style.display = '';
   const st = histShared.status, last = st?.lastRun ? +new Date(st.lastRun) : 0, stale = !last || Date.now()-last > 3*3600e3;
-  el.innerHTML = `Shared history: <code>${esc(histShared.folder)}</code><br>` + (histShared.error ? `<span class="err">Can't read it: ${esc(histShared.error)}</span>`
+  el.innerHTML = `Shared history: <code>${esc(histShared.folder)}</code><br>` + (histShared.unreachable
+      ? `<span class="err">⚠ Can't reach this folder. The share may be offline, the path may be wrong, or this PC or account may not have Read access. Showing local history only.</span>`
+    : histShared.error ? `<span class="err">Can't read it: ${esc(histShared.error)}</span>`
     : last ? `<span class="${stale?'err':''}">${stale?'⚠ ':''}Collector last ran ${ago(last)}</span> on ${esc(st.machine||'?')} · ${st.ok}/${st.stations} stations${st.failed?` · ${st.failed} failed`:''}`
-    : `<span class="err">⚠ The collector hasn't run yet.</span>`);
+    : `<span class="err">⚠ The folder is reachable, but the collector hasn't run there yet (no collector-status.json).</span>`);
 }
 function render(){
   document.getElementById('main').innerHTML = statePanel('TN')+statePanel('AR')+statePanel('MS')+alertsPanel();

@@ -206,6 +206,13 @@ public partial class MainWindow : Window
         var data = history.LoadAll(settings.HistoryDays);
         sharedInfo = null;
         if (SharedHistory is not HistoryStore store) return data;
+        // Directory.Exists is false both for a missing folder and for one this PC or account can't reach
+        // (share offline, no permission). Report that rather than letting it look like an empty share.
+        if (!Directory.Exists(store.Directory))
+        {
+            sharedInfo = new { folder = store.Directory, unreachable = true };
+            return data;
+        }
         try
         {
             foreach (var (sid, rows) in store.LoadAll(settings.HistoryDays, readOnly: true))
