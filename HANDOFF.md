@@ -4,7 +4,7 @@
 
 - **Last updated:** 2026-11-17
 - **Version:** 1.7.0
-- **Branch:** `main`. 1.6.1 is pushed; 1.7.0 is committed locally and not pushed yet
+- **Branch:** `main`, 1.7.0 pushed to GitHub
 - **Working tree:** clean
 
 ---
@@ -42,12 +42,17 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 ## 2. Open items and next steps
 
 ### Waiting on the user
-1. **Deploy to the station server.** Make the share (users: Read; the collector account: Modify on `history`). Copy `publish\*`, create `WeatherFeeds.shared.json` with a real `contactEmail`, then run `install-collector.ps1 -ExePath <local path>`. Check `LastTaskResult = 0`, and check that Settings → History shows "Collector last ran … on SERVER".
+1. **Deploy to the station server: in progress (2026-11-17).** The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
+   - `schtasks /Create` said "Access is denied" until the Command Prompt was run as administrator.
+   - The task then failed with Last Result **-2147024891** (0x80070005): NETWORK SERVICE also needs **RX on the program folder**, not just Modify on `history`. Now step 3 of the setup file.
+   - Confirm the task's Last Result is 0 and `collector.log` ends with `Done: 14/14 stations`.
+   - **Use the standard (framework-dependent, about 2 MB) build.** The self-contained build is about 167 MB and took **4–5 minutes to start from the share** on a user's PC. The user confirmed every PC and the server have the .NET 10 Desktop Runtime. Started from `\\…\WeatherFeeds.exe` the 2 MB build is tested only via `\\localhost` here, not yet on a user's PC.
 2. ~~Yalobusha County, MS~~: **decided 2026-11-15: leave it out.** The 27 counties stay as they are.
 
 ### Offered, not started
 3. **Interactive county map** with NWS radar overlaid: Census county boundaries plus NWS radar map layers. This is the biggest remaining idea.
-4. **Self-contained build** (`publish.ps1 -SelfContained`, about 70 MB) so PCs don't need the .NET 10 Desktop Runtime.
+4. ~~Self-contained build~~: `publish.ps1 -SelfContained` already works (about 167 MB), but it's too slow to start from a share, and every PC has .NET 10, so it isn't used. If it's ever needed, a launcher that copies the exe locally would fix the startup time.
+9. **Startup-crash message and log.** If the app crashes before its window shows, it closes silently today. Offered, not started.
 5. ~~"Start with Windows" option~~: done in 1.7.0.
 6. ~~Clearer Settings message when the share is unreachable~~: done in 1.6.1.
 7. **Small-size icon variant** (16/32 px) showing only the sun and cloud. The temperature/wind text in the artwork turns to mush at small sizes.

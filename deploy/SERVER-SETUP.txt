@@ -1,0 +1,118 @@
+WeatherFeeds - server setup without PowerShell scripts
+=======================================================
+
+These do the same job as install-collector.ps1, using commands built into Windows.
+Run them in a Command Prompt opened with "Run as administrator" (Start > type cmd >
+right-click Command Prompt > Run as administrator). Paste one command at a time.
+
+The examples use  D:\Shares\WeatherFeeds  as the folder on the server.
+If yours is different, change that path in every command.
+
+Requirement: the server and every PC that runs WeatherFeeds need the
+.NET 10 Desktop Runtime (x64). To check, a folder starting with "10." should be listed by:
+
+  dir "C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App"
+
+(The standard build is about 2 MB and starts quickly from the share. A build made with
+publish.ps1 -SelfContained runs without .NET but is about 167 MB, and started from a
+share it can take several minutes to open.)
+
+
+STEP 1 - Make the folders
+-------------------------
+  mkdir "D:\Shares\WeatherFeeds\history"
+
+  Creates the program folder and, inside it, the "history" folder where the
+  collector saves weather-station readings. (Says "already exists" if it does; that's fine.)
+
+
+STEP 2 - Copy the program in
+----------------------------
+Copy these two files from the build (made with publish.ps1, no -SelfContained) into D:\Shares\WeatherFeeds :
+  WeatherFeeds.exe
+  WeatherFeeds.shared.sample.json
+(The .xml and .pdb files in the build folder aren't needed.)
+
+  ren "D:\Shares\WeatherFeeds\WeatherFeeds.shared.sample.json" WeatherFeeds.shared.json
+
+  Renames the sample settings file to the name the program looks for.
+
+  notepad "D:\Shares\WeatherFeeds\WeatherFeeds.shared.json"
+
+  Opens it to edit. Change "weather-team@example.com" to a real email address the
+  National Weather Service can reach (they require one), then save and close.
+  Leave "historyFolder": "history" as it is.
+
+
+STEP 3 - Give the collector the access it needs
+-----------------------------------------------
+  icacls "D:\Shares\WeatherFeeds" /grant "*S-1-5-20:(OI)(CI)RX"
+
+  Lets the built-in NETWORK SERVICE account read and run the program (S-1-5-20 is
+  NETWORK SERVICE). Without this the scheduled task fails with Last Result
+  -2147024891 (access denied).
+
+  icacls "D:\Shares\WeatherFeeds\history" /grant "*S-1-5-20:(OI)(CI)M"
+
+  Lets it change files in the history folder only. Each command should print
+  "Successfully processed ... files".
+
+
+STEP 4 - Test the collector once by hand
+----------------------------------------
+  start /wait "" "D:\Shares\WeatherFeeds\WeatherFeeds.exe" --collect
+
+  Runs one collection and waits for it to finish (the first run takes about a
+  minute; there's no window). Then:
+
+  echo %ERRORLEVEL%
+
+  Shows how it went:  0 = OK   1 = some stations failed   2 = nothing worked
+                      3 = another collector was already running   4 = setup problem
+  For 4, read D:\Shares\WeatherFeeds\collector-error.txt (usually the email or folder setting).
+
+  type "D:\Shares\WeatherFeeds\history\collector.log"
+
+  Shows the collector's log.
+
+
+STEP 5 - Schedule it every 30 minutes
+-------------------------------------
+  If you get "ERROR: Access is denied", the Command Prompt isn't running as administrator.
+
+  schtasks /Create /TN "WeatherFeeds Collector" /TR "\"D:\Shares\WeatherFeeds\WeatherFeeds.exe\" --collect" /SC MINUTE /MO 30 /RU "NT AUTHORITY\NETWORK SERVICE" /RL LIMITED /F
+
+  Creates a scheduled task that runs the collector every 30 minutes as NETWORK
+  SERVICE, whether or not anyone is signed in. No password is needed.
+  /F replaces the task if it already exists.
+
+  schtasks /Run /TN "WeatherFeeds Collector"
+
+  Runs it right now instead of waiting 30 minutes.
+
+  schtasks /Query /TN "WeatherFeeds Collector" /V /FO LIST | findstr /C:"Last Run Time" /C:"Last Result" /C:"Status"
+
+  Wait a minute after /Run, then use this to check it. "Last Result: 0" means it worked
+  (the numbers mean the same as in Step 4). If it still says "Running", wait and try again.
+
+
+STEP 6 - Share the folder so the PCs can use it
+-----------------------------------------------
+Skip this if D:\Shares\WeatherFeeds is already shared.
+
+  net share WeatherFeeds="D:\Shares\WeatherFeeds" /GRANT:"Authenticated Users",READ
+
+  Shares the folder as \\<server name>\WeatherFeeds, read-only for signed-in users.
+  Only the collector writes to it.
+
+On each PC, run \\<server name>\WeatherFeeds\WeatherFeeds.exe (or copy it locally
+together with WeatherFeeds.shared.json, after changing "historyFolder" to the full
+\\<server name>\WeatherFeeds\history path). Then check Settings > History: it should say
+"Collector last ran ... on <server name>".
+
+
+To remove it later
+------------------
+  schtasks /Delete /TN "WeatherFeeds Collector" /F
+
+  Deletes the scheduled task. The program and history files are left in place.

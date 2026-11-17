@@ -4,3 +4,4 @@ publish/
 .vs/
 *.user
 .claude/
+publish-standard/
