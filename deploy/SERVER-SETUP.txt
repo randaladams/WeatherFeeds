@@ -13,6 +13,11 @@ Requirement: the server and every PC that runs WeatherFeeds need the
 
   dir "C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App"
 
+If it isn't there, download ".NET Desktop Runtime 10.0.x - Windows x64 (Installer)" from
+https://dotnet.microsoft.com/download/dotnet/10.0 and run it (double-click, or silently:
+  windowsdesktop-runtime-10.0.<x>-win-x64.exe /install /quiet /norestart
+then run the dir command above again). No restart is needed.
+
 (The standard build is about 2 MB and starts quickly from the share. A build made with
 publish.ps1 -SelfContained runs without .NET but is about 167 MB, and started from a
 share it can take several minutes to open.)

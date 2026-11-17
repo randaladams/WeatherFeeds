@@ -46,7 +46,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
    - `schtasks /Create` said "Access is denied" until the Command Prompt was run as administrator.
    - The task then failed with Last Result **-2147024891** (0x80070005): NETWORK SERVICE also needs **RX on the program folder**, not just Modify on `history`. Now step 3 of the setup file.
    - Confirm the task's Last Result is 0 and `collector.log` ends with `Done: 14/14 stations`.
-   - **Use the standard (framework-dependent, about 2 MB) build.** The self-contained build is about 167 MB and took **4–5 minutes to start from the share** on a user's PC. The user confirmed every PC and the server have the .NET 10 Desktop Runtime. Started from `\\…\WeatherFeeds.exe` the 2 MB build is tested only via `\\localhost` here, not yet on a user's PC.
+   - **Use the standard (framework-dependent, about 2 MB) build.** The self-contained build is about 167 MB and took **4–5 minutes to start from the share** on a user's PC. Every PC has the .NET 10 Desktop Runtime; **the server didn't**, and the user chose to install it there (2026-11-17) rather than run a renamed self-contained `WeatherFeeds-collector.exe` for the task. That alternative was tested and works, since the config is found next to whichever exe runs. Started from `\\…\WeatherFeeds.exe` the 2 MB build is tested only via `\\localhost` here, not yet on a user's PC.
 2. ~~Yalobusha County, MS~~: **decided 2026-11-15: leave it out.** The 27 counties stay as they are.
 
 ### Offered, not started
