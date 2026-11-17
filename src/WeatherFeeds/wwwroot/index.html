@@ -587,6 +587,7 @@ let histShared = null;              // {folder, status|error} when the app also 
 HOST?.addEventListener('message', e=>{
   const m = e.data;
   if (m?.type==='startupState'){ showStartup(m.value, m.error); return; }
+  if (m?.type==='sharedStatus'){ histShared = m.shared || null; updateHistInfo(); return; }
   if (m?.type!=='histData') return;
   histShared = m.shared || null;
   if (histWaiter){ const w = histWaiter; histWaiter = null; w(m.data||{}); }
@@ -1200,7 +1201,7 @@ document.getElementById('dRefresh').onclick = ()=>refreshState(screen);
 document.getElementById('zRefresh').onclick = ()=>refreshState(BY_FIPS[zoomFips].st);
 document.getElementById('rRefresh').onclick = refreshRadar;
 document.getElementById('refreshAll').onclick = ()=>{ refreshAlerts(); for (const s in STATES) refreshState(s); if (screen==='radar') refreshRadar(); };
-document.getElementById('openSettings').onclick = ()=>document.body.classList.add('settings-open');
+document.getElementById('openSettings').onclick = ()=>{ document.body.classList.add('settings-open'); postHost('sharedStatus', {}); };
 document.getElementById('closeSettings').onclick = document.getElementById('scrim').onclick = ()=>document.body.classList.remove('settings-open');
 document.getElementById('soundBanner').onclick = ()=>{ const c = audio(); c && c.resume().then(updateSoundBanner); };
 
@@ -1272,6 +1273,8 @@ if (IS_APP){
   audio();                               // the app allows sound without a click
   postHost('topmost', prefs.topmost);
   postHost('tray', prefs.minToTray);
+  // The central collector keeps running after this copy starts: re-read its status now and then.
+  setInterval(()=>postHost('sharedStatus', {}), 5*60000);
   if (!prefs.contact) document.body.classList.add('settings-open');   // first run: ask for the NWS contact email
 }
 applyTheme(); showUA(); showVersion(); updateSoundBanner();

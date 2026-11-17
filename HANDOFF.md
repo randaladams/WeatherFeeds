@@ -3,8 +3,8 @@
 **Use this to pick up the work on another machine or in a new session.** The [README](README.md) covers features, setup and usage. This file covers where things stand, how the code is put together, what was learned the hard way, and what's next.
 
 - **Last updated:** 2026-11-17
-- **Version:** 1.7.0
-- **Branch:** `main`, 1.7.0 pushed to GitHub
+- **Version:** 1.7.1
+- **Branch:** `main`. 1.7.1 is committed locally and not pushed yet
 - **Working tree:** clean
 
 ---
@@ -26,6 +26,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 | 1.6 | **`--collect` headless mode** and **central-share history** via `WeatherFeeds.shared.json`; clients read the share and never write to it; `install-collector.ps1` creates a scheduled task (NETWORK SERVICE by default) |
 | 1.6.1 | Settings → History says when the shared folder **can't be reached** (offline, wrong path, no Read access) instead of "collector hasn't run yet"; self-tested both cases |
 | 1.7 | **Start with Windows** (Settings): a per-user `HKCU\…\Run` entry launching `WeatherFeeds.exe --startup`, which starts minimized (straight to the tray if that's on). The checkbox reads the registry, so it stays right if the entry is removed in Task Manager. **Fix:** after an upgrade the first NWS requests now carry the new version in the User-Agent |
+| 1.7.1 | **Fix:** Settings → History re-reads the collector status every 5 minutes and whenever Settings opens. It used to read it only at startup, so a workstation showed "last ran 1h 52m ago · 0/14" while the server collector was succeeding. Read off the UI thread, so an offline share can't freeze the window |
 
 **Verified:**
 - **Every build** has passed `--selftest`: all 27 counties loading, NWS User-Agent seen on the wire, history, SPC, climate and rivers.
@@ -42,7 +43,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 ## 2. Open items and next steps
 
 ### Waiting on the user
-1. **Deploy to the station server: in progress (2026-11-17).** The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
+1. **Deploy to the station server: collector running (2026-11-17).** Server `MEMTVPFSFILE01`, folder `D:\APPS\WeatherFeeds`, task runs every 30 min as NETWORK SERVICE, and the 12:10 run returned 0. A workstation reads the share. **Still to do:** put the 1.7.1 exe on the share and add the 30-minute time limit in Task Scheduler. The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
    - `schtasks /Create` said "Access is denied" until the Command Prompt was run as administrator.
    - The task then failed with Last Result **-2147024891** (0x80070005): NETWORK SERVICE also needs **RX on the program folder**, not just Modify on `history`. Now step 3 of the setup file.
    - Confirm the task's Last Result is 0 and `collector.log` ends with `Done: 14/14 stations`.
@@ -110,6 +111,7 @@ nuget.config               Adds nuget.org; the dev PC had no package source conf
 | `cursor` | Move the real mouse pointer (`SetCursorPos`, only while the window is active) |
 | `histAppend` | Add readings to the local CSV history |
 | `histLoad` | Request history; the host replies `{type:'histData', data, shared}` |
+| `sharedStatus` | Re-read only `collector-status.json`; the host replies `{type:'sharedStatus', shared}` |
 | `histRetention` | Change how many days of history are kept |
 | `openHistory` | Open the history folder in Explorer |
 

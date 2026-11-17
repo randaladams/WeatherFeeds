@@ -207,6 +207,9 @@ public partial class MainWindow : Window
                     Web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(
                         new { type = "histData", data = LoadHistory(out var sharedInfo), shared = sharedInfo }));
                     break;
+                case "sharedStatus":
+                    PostSharedStatus();
+                    break;
                 case "histRetention":
                     settings.HistoryDays = Math.Clamp(value.GetInt32(), 1, 3650);
                     settings.Save(SettingsPath);
@@ -238,15 +241,41 @@ public partial class MainWindow : Window
         {
             foreach (var (sid, rows) in store.LoadAll(settings.HistoryDays, readOnly: true))
                 data[sid] = data.TryGetValue(sid, out var local) ? [.. local, .. rows] : rows;
+            sharedInfo = SharedStatus(store);
+        }
+        catch (Exception ex) { sharedInfo = new { folder = store.Directory, error = ex.Message }; }
+        return data;
+    }
+
+    /// <summary>The shared folder's collector status only (cheap: one small file), for the Settings line.</summary>
+    static object SharedStatus(HistoryStore store)
+    {
+        if (!Directory.Exists(store.Directory)) return new { folder = store.Directory, unreachable = true };
+        try
+        {
             var statusPath = Path.Combine(store.Directory, "collector-status.json");
-            sharedInfo = new
+            return new
             {
                 folder = store.Directory,
                 status = File.Exists(statusPath) ? JsonDocument.Parse(File.ReadAllText(statusPath)).RootElement : (JsonElement?)null,
             };
         }
-        catch (Exception ex) { sharedInfo = new { folder = store.Directory, error = ex.Message }; }
-        return data;
+        catch (Exception ex) { return new { folder = store.Directory, error = ex.Message }; }
+    }
+
+    /// <summary>
+    /// Re-reads the collector status so a long-running copy doesn't keep showing what it saw at startup.
+    /// Off the UI thread: Directory.Exists on an offline share can take many seconds.
+    /// </summary>
+    async void PostSharedStatus()
+    {
+        if (SharedHistory is not HistoryStore store) return;
+        try
+        {
+            var info = await Task.Run(() => SharedStatus(store));
+            Web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "sharedStatus", shared = info }));
+        }
+        catch { /* best effort; the next poll tries again */ }
     }
 
     // ---------------------------------------------------------------- Tray
@@ -402,6 +431,9 @@ public partial class MainWindow : Window
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(45));
+            // Exercise the periodic shared-status refresh, so the report shows the status as re-read now.
+            await Web.CoreWebView2.ExecuteScriptAsync("postHost('sharedStatus', {})");
+            await Task.Delay(TimeSpan.FromSeconds(3));
             var page = await Web.CoreWebView2.ExecuteScriptAsync(
                 "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, version: document.querySelector('.ver').textContent," +
                 " about: document.getElementById('aboutVersion').textContent, shared: histShared," +
