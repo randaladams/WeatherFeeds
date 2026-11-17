@@ -98,7 +98,18 @@ STEP 5 - Schedule it every 30 minutes
   schtasks /Query /TN "WeatherFeeds Collector" /V /FO LIST | findstr /C:"Last Run Time" /C:"Last Result" /C:"Status"
 
   Wait a minute after /Run, then use this to check it. "Last Result: 0" means it worked
-  (the numbers mean the same as in Step 4). If it still says "Running", wait and try again.
+  (the numbers mean the same as in Step 4). Other results you may see:
+    267009        still running; wait a minute and check again
+    -2147024891   access denied: NETWORK SERVICE can't read the program folder (see Step 3)
+    2             nothing downloaded; if collector.log shows "HTTP 503", NWS is down.
+                  Nothing to fix: the next run after NWS recovers fills in the last 7 days.
+  A run takes under a minute. If it says "Running" for several minutes, it's stuck (most
+  often: .NET 10 isn't installed). Stop it with:
+    schtasks /End /TN "WeatherFeeds Collector"
+
+  Add a time limit so a stuck run can't block later runs (schtasks can't set this):
+  run taskschd.msc > Task Scheduler Library > right-click "WeatherFeeds Collector" >
+  Properties > Settings > tick "Stop the task if it runs longer than" and enter 30 minutes > OK.
 
 
 STEP 6 - Share the folder so the PCs can use it
