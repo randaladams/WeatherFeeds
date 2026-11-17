@@ -12,7 +12,7 @@
     <AssemblyName>WeatherFeeds</AssemblyName>
     <RootNamespace>WeatherFeeds</RootNamespace>
     <!-- The one place the version is set: shown in the title bar, tray, dashboard headers, Settings and User-Agent. -->
-    <Version>1.6.1</Version>
+    <Version>1.7.0</Version>
     <Product>WeatherFeeds</Product>
     <Description>Memphis DMA weather dashboard powered by api.weather.gov</Description>
   </PropertyGroup>

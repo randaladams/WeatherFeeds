@@ -186,6 +186,7 @@ body.settings-open #settings{transform:none}
 .row label{min-width:120px}
 .row input[type=text],.row input[type=email],.row input[type=password]{flex:1;min-width:180px}
 .hint{color:var(--muted);font-size:12px;margin:4px 0 8px}
+.hint.err{color:var(--bad)}
 body:not(.is-app) .app-only, body.is-app .web-only{display:none !important}
 code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;border-radius:4px;word-break:break-all}
 @media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:none}.panel{min-height:320px}}
@@ -267,6 +268,8 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
     <div class="hint">Auto follows the Windows light/dark setting.</div>
     <div class="row app-only"><label><input type="checkbox" id="topmost"> Keep window on top of other windows</label></div>
     <div class="row app-only"><label><input type="checkbox" id="minToTray"> Minimize to the system tray instead of the taskbar</label></div>
+    <div class="row app-only"><label><input type="checkbox" id="startup"> Start WeatherFeeds when I sign in to Windows</label></div>
+    <div class="hint app-only" id="startupHint">Starts minimized (in the tray if that's on) so alerts work without anyone opening it. Applies to this Windows account only.</div>
     <div class="hint">Right-click (or the mouse's back button) goes back to the dashboard.</div>
 
     <h3>Refresh</h3>
@@ -583,6 +586,7 @@ let histWaiter = null;
 let histShared = null;              // {folder, status|error} when the app also reads a shared history folder
 HOST?.addEventListener('message', e=>{
   const m = e.data;
+  if (m?.type==='startupState'){ showStartup(m.value, m.error); return; }
   if (m?.type!=='histData') return;
   histShared = m.shared || null;
   if (histWaiter){ const w = histWaiter; histWaiter = null; w(m.data||{}); }
@@ -1234,6 +1238,16 @@ bind('apiKey','apiKey','text');
 bind('topmost','topmost','check',()=>postHost('topmost', prefs.topmost));
 bind('minToTray','minToTray','check',()=>postHost('tray', prefs.minToTray));
 bind('popups','popups','check');
+// Start with Windows lives in the registry (the host's Run entry), not in page prefs, so it is read from the host.
+function showStartup(on, error){
+  document.getElementById('startup').checked = !!on;
+  const hint = document.getElementById('startupHint');
+  hint.classList.toggle('err', !!error);
+  hint.textContent = error ? `Couldn't change this: ${error}`
+    : `Starts minimized (in the tray if that's on) so alerts work without anyone opening it. Applies to this Windows account only.`;
+}
+showStartup(window.WF_HOST?.startup);
+document.getElementById('startup').addEventListener('change', e=>postHost('startup', e.target.checked));
 bind('histDays','histDays','num',()=>{
   postHost('histRetention', prefs.histDays);
   for (const s in hist) mergeHist(s, []);   // applies the new cutoff

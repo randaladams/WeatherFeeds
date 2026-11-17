@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     }
     readonly string? selfTestOut;
     readonly bool demo;
+    readonly bool launchedAtSignIn;
     readonly HashSet<string> wireUserAgents = [];
     int notificationsShown;
     readonly List<string> navLog = [];
@@ -56,16 +57,30 @@ public partial class MainWindow : Window
         if (i >= 0 && i + 1 < args.Length) selfTestOut = args[i + 1];
         // --demo: inject sample alerts (labelled [DEMO]) to try out the alert panel, sounds and popups.
         demo = args.Contains("--demo");
+        // --startup: launched by the "Start with Windows" Run entry; start out of the way.
+        launchedAtSignIn = args.Contains(StartupRegistration.Arg) && selfTestOut == null;
 
         Title = $"WeatherFeeds {Version} – Memphis DMA";
         // On a station install, the shared config supplies the NWS contact so each user isn't asked for one.
         if (settings.UserAgent == HostSettings.DefaultUserAgent && shared?.ContactEmail?.Contains('@') == true)
             settings.UserAgent = HostSettings.SanitizeUserAgent($"WeatherFeeds/{Version} ({shared.ContactEmail.Trim()})");
+        // After an upgrade, send the new version from the very first request (a custom app name is left alone).
+        settings.UserAgent = System.Text.RegularExpressions.Regex.Replace(settings.UserAgent, @"^WeatherFeeds/[\d.]+ \(", $"WeatherFeeds/{Version} (");
         RestoreWindowPlacement();
+        if (launchedAtSignIn) WindowState = WindowState.Minimized;   // before StateChanged is hooked up
         Topmost = settings.Topmost;
         CreateTrayIcon();
 
-        Loaded += async (_, _) => await InitAsync();
+        Loaded += async (_, _) =>
+        {
+            await InitAsync();
+            // At sign-in with "minimize to tray" on, go straight to the tray (after WebView2 has its window).
+            if (launchedAtSignIn && settings.MinimizeToTray && WindowState == WindowState.Minimized)
+            {
+                trayHintShown = true;
+                Hide();
+            }
+        };
         Closing += OnClosing;
         StateChanged += OnStateChanged;
     }
@@ -131,7 +146,7 @@ public partial class MainWindow : Window
             };
         }
         await core.AddScriptToExecuteOnDocumentCreatedAsync(
-            $"window.WF_HOST = {JsonSerializer.Serialize(new { userAgent = settings.UserAgent, version = Version, build = Build })};");
+            $"window.WF_HOST = {JsonSerializer.Serialize(new { userAgent = settings.UserAgent, version = Version, build = Build, startup = StartupRegistration.IsEnabled() })};");
         core.Navigate($"https://{AppHost}/index.html{(demo ? "?demo" : "")}");
     }
 
@@ -161,6 +176,12 @@ public partial class MainWindow : Window
                 case "tray":
                     settings.MinimizeToTray = value.GetBoolean();
                     settings.Save(SettingsPath);
+                    break;
+                case "startup":
+                    // Reply with what the registry really holds, so the checkbox can't show a change that failed.
+                    var startupError = StartupRegistration.Set(value.GetBoolean());
+                    Web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(
+                        new { type = "startupState", value = StartupRegistration.IsEnabled(), error = startupError }));
                     break;
                 case "notify":
                     ShowNotification(value.GetProperty("title").GetString() ?? "WeatherFeeds",
@@ -384,7 +405,8 @@ public partial class MainWindow : Window
             var page = await Web.CoreWebView2.ExecuteScriptAsync(
                 "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, version: document.querySelector('.ver').textContent," +
                 " about: document.getElementById('aboutVersion').textContent, shared: histShared," +
-                " sharedText: document.getElementById('histSharedInfo').textContent, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
+                " sharedText: document.getElementById('histSharedInfo').textContent," +
+                " startupBox: document.getElementById('startup').checked, startupRow: getComputedStyle(document.getElementById('startup').closest('.row')).display, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
                 " errors: Object.values(data).filter(d => d.err).length, alerts: alerts.length, alertErr: alertMeta.err," +
                 " audio: actx ? actx.state : 'none', banner: document.getElementById('soundBanner').className," +
                 " grids: Object.values(data).filter(d => d.grid).length, historyStations: Object.keys(hist).length," +

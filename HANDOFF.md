@@ -2,9 +2,9 @@
 
 **Use this to pick up the work on another machine or in a new session.** The [README](README.md) covers features, setup and usage. This file covers where things stand, how the code is put together, what was learned the hard way, and what's next.
 
-- **Last updated:** 2026-11-15
-- **Version:** 1.6.1
-- **Branch:** `main`; 1.6.1 is committed locally, not pushed yet
+- **Last updated:** 2026-11-17
+- **Version:** 1.7.0
+- **Branch:** `main`. 1.6.1 is pushed; 1.7.0 is committed locally and not pushed yet
 - **Working tree:** clean
 
 ---
@@ -25,6 +25,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 | 1.5 / 1.5.1 | Version shown in the title bar, tray, every screen header and Settings → About; pointer lands at the card's center; **fix:** history backfill now follows NWS paging to get all 7 days |
 | 1.6 | **`--collect` headless mode** and **central-share history** via `WeatherFeeds.shared.json`; clients read the share and never write to it; `install-collector.ps1` creates a scheduled task (NETWORK SERVICE by default) |
 | 1.6.1 | Settings → History says when the shared folder **can't be reached** (offline, wrong path, no Read access) instead of "collector hasn't run yet"; self-tested both cases |
+| 1.7 | **Start with Windows** (Settings): a per-user `HKCU\…\Run` entry launching `WeatherFeeds.exe --startup`, which starts minimized (straight to the tray if that's on). The checkbox reads the registry, so it stays right if the entry is removed in Task Manager. **Fix:** after an upgrade the first NWS requests now carry the new version in the User-Agent |
 
 **Verified:**
 - **Every build** has passed `--selftest`: all 27 counties loading, NWS User-Agent seen on the wire, history, SPC, climate and rivers.
@@ -33,6 +34,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 **Not verified yet:**
 - `install-collector.ps1` has passed a syntax check but has **never been run**, because it changes Windows scheduled tasks.
 - The collector has never run as **NETWORK SERVICE** or **SYSTEM**, only as the interactive user.
+- **Start with Windows (1.7)**: the self-test confirms the checkbox shows and reads the registry, but ticking it, signing in with it on, and the tray start have **not been tried**, since that writes the user's Run key. Needs a manual check.
 - Moving the pointer to the **center** of the card (1.5) hasn't been confirmed by the user. They did confirm the earlier version, which landed near the top of the card.
 
 ---
@@ -46,7 +48,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 ### Offered, not started
 3. **Interactive county map** with NWS radar overlaid: Census county boundaries plus NWS radar map layers. This is the biggest remaining idea.
 4. **Self-contained build** (`publish.ps1 -SelfContained`, about 70 MB) so PCs don't need the .NET 10 Desktop Runtime.
-5. **"Start with Windows"** option, so alert-critical PCs always have the app running.
+5. ~~"Start with Windows" option~~: done in 1.7.0.
 6. ~~Clearer Settings message when the share is unreachable~~: done in 1.6.1.
 7. **Small-size icon variant** (16/32 px) showing only the sun and cloud. The temperature/wind text in the artwork turns to mush at small sizes.
 8. **Archive forecasts** alongside observations, to compare forecast against actual later.
@@ -67,6 +69,7 @@ src/WeatherFeeds/
   HostSettings.cs          %LOCALAPPDATA%\WeatherFeeds\settings.json (window, topmost, tray, User-Agent, history days)
   HistoryStore.cs          One CSV per station; merge, trim, read-only load for the share
   SharedConfig.cs          WeatherFeeds.shared.json next to the exe (historyFolder, contactEmail, collectorRetentionDays)
+  StartupRegistration.cs   Start with Windows: HKCU Run entry "<exe>" --startup
   Collector.cs             --collect: station list, paged fetch, lock file, log, status JSON, exit codes
   Assets/                  WeatherFeeds.ico plus make_icon.py (cuts the icon from the master artwork)
   wwwroot/
@@ -96,6 +99,7 @@ nuget.config               Adds nuget.org; the dev PC had no package source conf
 | `ua` | Save and apply the User-Agent |
 | `topmost` | Keep the window on top |
 | `tray` | Minimize to tray on/off |
+| `startup` | Start with Windows on/off; the host replies `{type:'startupState', value, error}` with what the registry really holds |
 | `notify` | Show a Windows popup for alerts |
 | `exit` | Exit, after confirmation |
 | `cursor` | Move the real mouse pointer (`SetCursorPos`, only while the window is active) |
@@ -104,7 +108,7 @@ nuget.config               Adds nuget.org; the dev PC had no package source conf
 | `histRetention` | Change how many days of history are kept |
 | `openHistory` | Open the history folder in Explorer |
 
-**Values the host injects into the page** before load: `window.WF_HOST = {userAgent, version, build}`.
+**Values the host injects into the page** before load: `window.WF_HOST = {userAgent, version, build, startup}`.
 - The page restores the contact email from it if page storage was reset.
 - The default app name in the User-Agent follows the version.
 
