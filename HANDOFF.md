@@ -3,8 +3,8 @@
 **Use this to pick up the work on another machine or in a new session.** The [README](README.md) covers features, setup and usage. This file covers where things stand, how the code is put together, what was learned the hard way, and what's next.
 
 - **Last updated:** 2026-11-23
-- **Version:** 1.8.0
-- **Branch:** `main`, 1.8.0 pushed to GitHub
+- **Version:** 1.8.1
+- **Branch:** `main`. 1.8.1 is committed locally and not pushed yet
 - **Working tree:** clean
 
 ---
@@ -28,6 +28,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 | 1.7 | **Start with Windows** (Settings): a per-user `HKCU\…\Run` entry launching `WeatherFeeds.exe --startup`, which starts minimized (straight to the tray if that's on). The checkbox reads the registry, so it stays right if the entry is removed in Task Manager. **Fix:** after an upgrade the first NWS requests now carry the new version in the User-Agent |
 | 1.7.1 | **Fix:** Settings → History re-reads the collector status every 5 minutes and whenever Settings opens. It used to read it only at startup, so a workstation showed "last ran 1h 52m ago · 0/14" while the server collector was succeeding. Read off the UI thread, so an offline share can't freeze the window |
 | 1.8 | **Alert log:** `--collect` appends every Actual Moderate/Severe/Extreme NWS alert touching a DMA county to `history\alerts.csv` (UTF-8 with BOM, one row per NWS message, 18 columns, opens in Excel/Sheets). It queries `/alerts?start=` from the previous run minus 2 h (`alerts-state.json`), so alerts between runs aren't missed; deduped by NWS ID; a locked file is retried next run (exit 1). A **📄 Alert log** button on the High Alerts footer opens a %TEMP% copy (Excel locks what it opens). **Collector banner:** red bar on the dashboard when the last run is over 90 min old, got 0 stations, or the share is unreachable; Settings also shows the alert-log count/error. The self-test saves a screenshot next to its report |
+| 1.8.1 | **Crash message and log:** a startup failure shows a message box with plain advice (a damaged/incomplete exe gets its own) and the details, and appends to `%LOCALAPPDATA%\WeatherFeeds\crash.log`. Errors after the window has loaded are logged and the app **keeps running**; `--collect` never shows a box. `--crash-test` simulates the damaged-exe crash. **Fix:** `--selftest` uses its own WebView2 profile (`WebView2-selftest`) and never saves settings. Earlier self-tests shared the user's profile and saved a test contact (`test@example.com`) as the user's NWS contact on the dev PC |
 
 **Verified:**
 - **Every build** has passed `--selftest`: all 27 counties loading, NWS User-Agent seen on the wire, history, SPC, climate and rivers.
@@ -64,6 +65,7 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 8. **Archive forecasts** alongside observations, to compare forecast against actual later.
 
 ### Known quirks
+- **Dev PC contact email:** test runs before 1.8.1 left `test@example.com` as the contact in this PC's dashboard preferences. `settings.json` was restored from a captured real User-Agent (backup `settings.json.bak-before-restore`), but the page's own copy may still say test@example.com until it's re-entered in **Settings → NWS contact email**.
 - One self-test run exited without writing a report; the next run passed. Not reproduced since. The likely cause is the user closing the test window.
 - The browser preview can't send the NWS User-Agent, which browsers don't allow pages to set. Only the exe is fully compliant.
 

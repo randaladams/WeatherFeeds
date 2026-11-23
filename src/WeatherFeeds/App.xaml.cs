@@ -7,6 +7,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        CrashReporter.Install(this, isHeadless: e.Args.Contains("--collect"));
         if (e.Args.Contains("--collect"))
         {
             // Headless collector run (Task Scheduler): no window, exit code reports the result.
@@ -17,6 +18,12 @@ public partial class App : Application
             Shutdown(code);
             return;
         }
-        new MainWindow().Show();
+        // --crash-test: fail the way a damaged exe does, to check the crash message and log.
+        if (e.Args.Contains("--crash-test"))
+            throw new System.Windows.Markup.XamlParseException("Simulated startup failure (--crash-test)",
+                new BadImageFormatException("Could not load file or assembly 'Microsoft.Web.WebView2.Core' (simulated by --crash-test)."));
+        var window = new MainWindow();
+        window.Loaded += (_, _) => CrashReporter.StartupDone = true;
+        window.Show();
     }
 }

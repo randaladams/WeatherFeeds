@@ -95,7 +95,7 @@ public partial class MainWindow : Window
             // window is minimised or hidden in the tray, so lift autoplay and background throttling.
             var options = new CoreWebView2EnvironmentOptions(
                 "--autoplay-policy=no-user-gesture-required");
-            var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(DataDir, "WebView2"), options);
+            var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(DataDir, selfTestOut != null ? "WebView2-selftest" : "WebView2"), options);
             await Web.EnsureCoreWebView2Async(env);
         }
         catch (Exception ex)
@@ -166,16 +166,16 @@ public partial class MainWindow : Window
                     {
                         settings.UserAgent = ua;
                         Web.CoreWebView2.Settings.UserAgent = ua;
-                        settings.Save(SettingsPath);
+                        SaveSettings();
                     }
                     break;
                 case "topmost":
                     settings.Topmost = Topmost = value.GetBoolean();
-                    settings.Save(SettingsPath);
+                    SaveSettings();
                     break;
                 case "tray":
                     settings.MinimizeToTray = value.GetBoolean();
-                    settings.Save(SettingsPath);
+                    SaveSettings();
                     break;
                 case "startup":
                     // Reply with what the registry really holds, so the checkbox can't show a change that failed.
@@ -215,7 +215,7 @@ public partial class MainWindow : Window
                     break;
                 case "histRetention":
                     settings.HistoryDays = Math.Clamp(value.GetInt32(), 1, 3650);
-                    settings.Save(SettingsPath);
+                    SaveSettings();
                     history.TrimAll(settings.HistoryDays);
                     break;
                 case "openHistory":
@@ -312,6 +312,9 @@ public partial class MainWindow : Window
         }
         catch { /* best effort; the next poll tries again */ }
     }
+
+    /// <summary>A self-test must never change the user's saved settings (it runs with test values).</summary>
+    void SaveSettings() { if (selfTestOut == null) settings.Save(SettingsPath); }
 
     // ---------------------------------------------------------------- Tray
 
@@ -455,7 +458,7 @@ public partial class MainWindow : Window
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         settings.Left = b.Left; settings.Top = b.Top; settings.Width = b.Width; settings.Height = b.Height;
         settings.Maximized = WindowState == WindowState.Maximized || (WindowState == WindowState.Minimized && stateBeforeTray == WindowState.Maximized);
-        settings.Save(SettingsPath);
+        SaveSettings();
     }
 
     async Task RunSelfTestAsync()
