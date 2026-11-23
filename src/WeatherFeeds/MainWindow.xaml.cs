@@ -210,6 +210,9 @@ public partial class MainWindow : Window
                 case "sharedStatus":
                     PostSharedStatus();
                     break;
+                case "openAlertLog":
+                    OpenAlertLog();
+                    break;
                 case "histRetention":
                     settings.HistoryDays = Math.Clamp(value.GetInt32(), 1, 3650);
                     settings.Save(SettingsPath);
@@ -261,6 +264,38 @@ public partial class MainWindow : Window
             };
         }
         catch (Exception ex) { return new { folder = store.Directory, error = ex.Message }; }
+    }
+
+    /// <summary>
+    /// Opens the collector's alerts.csv in the default spreadsheet program. Opens a copy in %TEMP%, so a viewer
+    /// (Excel locks files it has open) never stops the collector from adding to the real one.
+    /// </summary>
+    async void OpenAlertLog()
+    {
+        string? error = null;
+        try
+        {
+            if (SharedHistory is not HistoryStore store)
+                error = "There's no shared history folder (WeatherFeeds.shared.json), so there's no alert log.";
+            else
+                error = await Task.Run(() =>
+                {
+                    var source = Path.Combine(store.Directory, AlertLog.FileName);
+                    if (!Directory.Exists(store.Directory)) return "Can't reach the shared history folder.";
+                    if (!File.Exists(source)) return "The collector hasn't created the alert log yet.";
+                    foreach (var old in Directory.GetFiles(Path.GetTempPath(), "WeatherFeeds alerts *.csv"))
+                        try { if (File.GetLastWriteTime(old) < DateTime.Now.AddDays(-1)) File.Delete(old); } catch { /* still open */ }
+                    var copy = Path.Combine(Path.GetTempPath(), $"WeatherFeeds alerts {DateTime.Now:yyyy-MM-dd HHmm}.csv");
+                    using (var from = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var to = new FileStream(copy, FileMode.Create, FileAccess.Write))
+                        from.CopyTo(to);
+                    Process.Start(new ProcessStartInfo(copy) { UseShellExecute = true });
+                    return null;
+                });
+        }
+        catch (Exception ex) { error = "Couldn't open the alert log: " + ex.Message; }
+        try { Web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "alertLogResult", error })); }
+        catch { }
     }
 
     /// <summary>
@@ -438,13 +473,22 @@ public partial class MainWindow : Window
                 "JSON.stringify({ua: navigator.userAgent, isApp: IS_APP, version: document.querySelector('.ver').textContent," +
                 " about: document.getElementById('aboutVersion').textContent, shared: histShared," +
                 " sharedText: document.getElementById('histSharedInfo').textContent," +
-                " startupBox: document.getElementById('startup').checked, startupRow: getComputedStyle(document.getElementById('startup').closest('.row')).display, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
+                " startupBox: document.getElementById('startup').checked, startupRow: getComputedStyle(document.getElementById('startup').closest('.row')).display," +
+                " collectorBanner: document.getElementById('collectorBanner').classList.contains('show') ? document.getElementById('collectorBanner').textContent : null," +
+                " alertLogButton: document.querySelector('[data-alertlog]')?.textContent.trim() || null, counties: Object.values(data).filter(d => d.obs && d.fc).length," +
                 " errors: Object.values(data).filter(d => d.err).length, alerts: alerts.length, alertErr: alertMeta.err," +
                 " audio: actx ? actx.state : 'none', banner: document.getElementById('soundBanner').className," +
                 " grids: Object.values(data).filter(d => d.grid).length, historyStations: Object.keys(hist).length," +
                 " historyRows: Object.values(hist).reduce((n, r) => n + r.length, 0), spcDays: spc.days.filter(Boolean).length," +
                 " climateSites: Object.keys(climate).length, rivers: rivers.list.length, riverErr: rivers.err, lsr: lsr.length})");
             page = JsonSerializer.Deserialize<string>(page) ?? "null";
+            // A picture of the dashboard next to the report, for checking layout (app-only parts don't show in a browser).
+            try
+            {
+                using var shot = File.Create(Path.ChangeExtension(selfTestOut!, ".png"));
+                await Web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, shot);
+            }
+            catch { /* the report matters more than the picture */ }
             report = JsonSerializer.Serialize(new
             {
                 title = Title,

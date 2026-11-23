@@ -49,6 +49,8 @@ header h1 small{color:var(--muted);font-weight:400;margin-left:8px;font-size:13p
 select,input[type=text],input[type=email],input[type=password]{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
 #soundBanner{display:none;background:var(--warn);color:#111;padding:6px 16px;font-weight:600;cursor:pointer}
 #soundBanner.show{display:block}
+#collectorBanner{display:none;background:var(--bad);color:#fff;padding:6px 16px;font-weight:600;cursor:pointer}
+#collectorBanner.show{display:block}
 main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;padding:12px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0;overflow:hidden;box-shadow:var(--shadow)}
 .panel.state{cursor:pointer;transition:border-color .15s}
@@ -204,6 +206,7 @@ code{font:12px Consolas,monospace;background:var(--panel2);padding:2px 5px;borde
   <button class="btn app-only" id="exitApp" title="Exit WeatherFeeds">⏻ Exit</button>
 </header>
 <div id="soundBanner">🔇 The browser is blocking alert sounds. Click here to enable them.</div>
+<div id="collectorBanner"></div>
 <main id="main"></main>
 
 <div id="detail" class="screen">
@@ -587,7 +590,9 @@ let histShared = null;              // {folder, status|error} when the app also 
 HOST?.addEventListener('message', e=>{
   const m = e.data;
   if (m?.type==='startupState'){ showStartup(m.value, m.error); return; }
-  if (m?.type==='sharedStatus'){ histShared = m.shared || null; updateHistInfo(); return; }
+  if (m?.type==='sharedStatus'){ histShared = m.shared || null; render(); return; }
+  if (m?.type==='alertLogResult'){ alertLogMsg = m.error || ''; render(); if (!m.error) return;
+    setTimeout(()=>{ alertLogMsg = ''; render(); }, 15000); return; }
   if (m?.type!=='histData') return;
   histShared = m.shared || null;
   if (histWaiter){ const w = histWaiter; histWaiter = null; w(m.data||{}); }
@@ -930,7 +935,15 @@ function alertsPanel(){
       <span>Feed updated <b data-ago="${upd}">${ago(upd)}</b></span>
       <span>Next <b data-until="${m.nextAt}">${m.loading?'loading…':until(m.nextAt)}</b></span>
       ${m.err?`<span class="err">Error: ${esc(m.err)}</span>`:''}
-      <span class="spacer"></span><button class="btn" data-refresh="alerts" ${m.loading?'disabled':''}>⟳</button></div></section>`;
+      <span class="spacer"></span>${alertLogButton()}<button class="btn" data-refresh="alerts" ${m.loading?'disabled':''}>⟳</button></div></section>`;
+}
+// The collector keeps every Moderate-or-higher DMA alert in alerts.csv on the share; this opens a copy of it.
+let alertLogMsg = '';
+function alertLogButton(){
+  if (!IS_APP || !histShared) return '';
+  const n = histShared.status?.alertsTotal;
+  return `${alertLogMsg?`<span class="${alertLogMsg==='Opening…'?'':'err'}">${esc(alertLogMsg)}</span>`:''}
+    <button class="btn" data-alertlog title="Every Moderate-or-higher DMA alert the collector has recorded, opened in Excel or your default spreadsheet program">📄 Alert log${n!=null?` (${n})`:''}</button>`;
 }
 function countyCard(c){
   const d = data[c.fips]||{}, o = d.obs, al = alertsFor(c.fips);
@@ -1050,15 +1063,36 @@ function updateHistInfo(){
   const sids = Object.keys(hist), n = sids.reduce((s,k)=>s+hist[k].length, 0);
   const oldest = Math.min(...sids.map(k=>hist[k][0]?.[0]||Infinity));
   document.getElementById('histInfo').textContent = n ? `${n.toLocaleString()} readings from ${sids.length} stations, back to ${new Date(oldest).toLocaleDateString()}.` : 'No readings saved yet.';
+  updateCollectorBanner();
   const el = document.getElementById('histSharedInfo');
   if (!histShared){ el.style.display = 'none'; return; }
   el.style.display = '';
-  const st = histShared.status, last = st?.lastRun ? +new Date(st.lastRun) : 0, stale = !last || Date.now()-last > 3*3600e3;
+  const st = histShared.status, last = st?.lastRun ? +new Date(st.lastRun) : 0, stale = !last || Date.now()-last > COLLECTOR_STALE_MIN*60000;
+  const alertLine = !st || !('alertsTotal' in st) ? ''
+    : st.alertsError ? `<br><span class="err">⚠ Alert log not updated: ${esc(st.alertsError)}</span>`
+    : `<br>Alert log: ${st.alertsTotal} Moderate-or-higher DMA alert${st.alertsTotal===1?'':'s'} recorded${st.alertsNew?` (${st.alertsNew} new in the last run)`:''}.`;
   el.innerHTML = `Shared history: <code>${esc(histShared.folder)}</code><br>` + (histShared.unreachable
       ? `<span class="err">⚠ Can't reach this folder. The share may be offline, the path may be wrong, or this PC or account may not have Read access. Showing local history only.</span>`
     : histShared.error ? `<span class="err">Can't read it: ${esc(histShared.error)}</span>`
-    : last ? `<span class="${stale?'err':''}">${stale?'⚠ ':''}Collector last ran ${ago(last)}</span> on ${esc(st.machine||'?')} · ${st.ok}/${st.stations} stations${st.failed?` · ${st.failed} failed`:''}`
+    : last ? `<span class="${stale?'err':''}">${stale?'⚠ ':''}Collector last ran ${ago(last)}</span> on ${esc(st.machine||'?')} · ${st.ok}/${st.stations} stations${st.failed?` · ${st.failed} failed`:''}${alertLine}`
     : `<span class="err">⚠ The folder is reachable, but the collector hasn't run there yet (no collector-status.json).</span>`);
+}
+// The collector runs every 30 minutes: three missed runs in a row means it has stopped.
+const COLLECTOR_STALE_MIN = 90;
+function collectorProblem(){
+  if (!IS_APP || !histShared) return null;
+  if (histShared.unreachable) return `Can't reach the shared history folder, so shared history and the alert log can't be read.`;
+  if (histShared.error) return `Can't read the shared history folder: ${histShared.error}`;
+  const st = histShared.status, last = st?.lastRun ? +new Date(st.lastRun) : 0, where = st?.machine ? ` on ${st.machine}` : '';
+  if (!last) return `The history collector hasn't run yet.`;
+  if (Date.now()-last > COLLECTOR_STALE_MIN*60000) return `The history collector${where} last ran ${ago(last)}. Shared history and the alert log aren't being updated.`;
+  if (st.stations && !st.ok) return `The last collector run${where} (${ago(last)}) got no data: 0/${st.stations} stations.`;
+  return null;
+}
+function updateCollectorBanner(){
+  const el = document.getElementById('collectorBanner'), p = collectorProblem();
+  el.classList.toggle('show', !!p);
+  if (p) el.textContent = `⚠ ${p} Click for details.`;
 }
 function render(){
   document.getElementById('main').innerHTML = statePanel('TN')+statePanel('AR')+statePanel('MS')+alertsPanel();
@@ -1126,6 +1160,7 @@ function ack(id){
 document.addEventListener('click', e=>{
   const t = e.target;
   const k = t.closest('[data-ack]'); if (k){ e.stopPropagation(); ack(k.dataset.ack); return; }
+  const lg = t.closest('[data-alertlog]'); if (lg){ alertLogMsg = 'Opening…'; render(); postHost('openAlertLog', {}); return; }
   const r = t.closest('[data-refresh]'); if (r){ r.dataset.refresh==='alerts' ? refreshAlerts() : refreshState(r.dataset.refresh); return; }
   const a = t.closest('[data-alert]'); if (a){ const id = a.dataset.alert; openAlerts.has(id)?openAlerts.delete(id):openAlerts.add(id); a.classList.toggle('open'); return; }
   const row = t.closest('[data-county]'); if (row){ const f = row.dataset.county; showScreen(BY_FIPS[f].st, f); return; }
@@ -1203,7 +1238,9 @@ document.getElementById('rRefresh').onclick = refreshRadar;
 document.getElementById('refreshAll').onclick = ()=>{ refreshAlerts(); for (const s in STATES) refreshState(s); if (screen==='radar') refreshRadar(); };
 document.getElementById('openSettings').onclick = ()=>{ document.body.classList.add('settings-open'); postHost('sharedStatus', {}); };
 document.getElementById('closeSettings').onclick = document.getElementById('scrim').onclick = ()=>document.body.classList.remove('settings-open');
-document.getElementById('soundBanner').onclick = ()=>{ const c = audio(); c && c.resume().then(updateSoundBanner); };
+document.getElementById('collectorBanner').onclick = ()=>{ document.body.classList.add('settings-open'); postHost('sharedStatus', {});
+  document.getElementById('histSharedInfo').scrollIntoView({block:'center'}); };
+document.getElementById('soundBanner').onclick =()=>{ const c = audio(); c && c.resume().then(updateSoundBanner); };
 
 // Settings bindings
 const bind = (id, key, kind, after) => {

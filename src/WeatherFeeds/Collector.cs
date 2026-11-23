@@ -79,15 +79,24 @@ public static class Collector
                 }
             });
 
+            // Moderate-or-higher alerts for the DMA, appended to alerts.csv (see AlertLog).
+            int alertsNew = 0, alertsTotal = 0;
+            string? alertsError = null;
+            try { (alertsNew, alertsTotal) = await AlertLog.UpdateAsync(url => GetJsonAsync(http, url), Api, folder, CountyList()); }
+            catch (IOException ex) { alertsError = $"alerts.csv is in use, will catch up next run ({ex.Message})"; }
+            catch (Exception ex) { alertsError = ex.Message; }
+            if (alertsError != null) log.Write($"Alert log: {alertsError}");
+
             var status = new
             {
                 lastRun = started.ToString("o"), finished = DateTimeOffset.UtcNow.ToString("o"),
                 version, stations = stations.Count, ok, failed, newReadings = added, retentionDays = days,
-                machine = Environment.MachineName,
+                machine = Environment.MachineName, alertsNew, alertsTotal, alertsError,
             };
             File.WriteAllText(Path.Combine(folder, "collector-status.json"), JsonSerializer.Serialize(status, new JsonSerializerOptions { WriteIndented = true }));
-            log.Write($"Done: {ok}/{stations.Count} stations, {added} new readings{(failed > 0 ? $", {failed} failed" : "")}.");
-            return failed == 0 ? 0 : ok > 0 ? 1 : 2;
+            log.Write($"Done: {ok}/{stations.Count} stations, {added} new readings{(failed > 0 ? $", {failed} failed" : "")}; " +
+                      (alertsError == null ? $"{alertsNew} new alerts ({alertsTotal} logged)." : "alert log not updated."));
+            return failed == 0 && alertsError == null ? 0 : ok > 0 ? 1 : 2;
         }
     }
 
@@ -121,7 +130,14 @@ public static class Collector
     }
 
     /// <summary>County-seat coordinates from the embedded counties.js (the same list the dashboard uses).</summary>
-    static IEnumerable<(double Lat, double Lon)> Counties()
+    static IEnumerable<(double Lat, double Lon)> Counties() =>
+        CountiesJson(c => (c.GetProperty("lat").GetDouble(), c.GetProperty("lon").GetDouble()));
+
+    /// <summary>State, name and 6-digit FIPS of each DMA county, for matching alerts.</summary>
+    static List<AlertLog.County> CountyList() =>
+        CountiesJson(c => new AlertLog.County(c.GetProperty("st").GetString()!, c.GetProperty("name").GetString()!, c.GetProperty("fips").GetString()!));
+
+    static List<T> CountiesJson<T>(Func<JsonElement, T> select)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("wwwroot/counties.js")
             ?? throw new InvalidOperationException("counties.js is missing from the build");
@@ -129,7 +145,7 @@ public static class Collector
         var start = js.IndexOf('=', js.IndexOf("const COUNTIES", StringComparison.Ordinal)) + 1;
         var json = js[start..(js.LastIndexOf(']') + 1)];
         using var doc = JsonDocument.Parse(json);
-        return doc.RootElement.EnumerateArray().Select(c => (c.GetProperty("lat").GetDouble(), c.GetProperty("lon").GetDouble())).ToList();
+        return doc.RootElement.EnumerateArray().Select(select).ToList();
     }
 
     /// <summary>

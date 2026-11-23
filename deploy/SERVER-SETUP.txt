@@ -127,6 +127,16 @@ together with WeatherFeeds.shared.json, after changing "historyFolder" to the fu
 "Collector last ran ... on <server name>".
 
 
+Alert log (version 1.8 and later)
+---------------------------------
+Each collector run also adds every Moderate, Severe or Extreme NWS alert that touches a DMA
+county to  D:\Shares\WeatherFeeds\history\alerts.csv  (opens in Excel or Google Sheets;
+one row per NWS message). Each run's log line ends with e.g. "2 new alerts (41 logged)".
+The "Alert log" button on the dashboard's High Alerts panel opens a copy of it.
+If a program holds alerts.csv open and locked, the run logs "alerts.csv is in use" and
+returns 1; the next run catches up. Other projects should copy the file or open it read-only.
+
+
 To remove it later
 ------------------
   schtasks /Delete /TN "WeatherFeeds Collector" /F
