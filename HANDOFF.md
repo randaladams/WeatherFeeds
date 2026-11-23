@@ -4,7 +4,7 @@
 
 - **Last updated:** 2026-11-23
 - **Version:** 1.8.0
-- **Branch:** `main`. 1.8.0 is committed locally and not pushed yet
+- **Branch:** `main`, 1.8.0 pushed to GitHub
 - **Working tree:** clean
 
 ---
@@ -35,7 +35,6 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 
 **Not verified yet:**
 - `install-collector.ps1` has passed a syntax check but has **never been run**, because it changes Windows scheduled tasks.
-- The collector has never run as **NETWORK SERVICE** or **SYSTEM**, only as the interactive user.
 - **Start with Windows (1.7)**: the self-test confirms the checkbox shows and reads the registry, but ticking it, signing in with it on, and the tray start have **not been tried**, since that writes the user's Run key. Needs a manual check.
 - Moving the pointer to the **center** of the card (1.5) hasn't been confirmed by the user. They did confirm the earlier version, which landed near the top of the card.
 
@@ -44,9 +43,11 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 ## 2. Open items and next steps
 
 ### Waiting on the user
-1. **Deploy to the station server: collector running (2026-11-17).** Server `MEMTVPFSFILE01`, folder `D:\APPS\WeatherFeeds`, task runs every 30 min as NETWORK SERVICE, and the 12:10 run returned 0. A workstation reads the share. The 1.7.1 exe is on the share. **Still to do:** add the 30-minute time limit in Task Scheduler.
+1. **Deploy to the station server: collector running (2026-11-17).** Server `MEMTVPFSFILE01`, folder `D:\APPS\WeatherFeeds`, task runs every 30 min as NETWORK SERVICE, and the 12:10 run returned 0. Workstations read the share (some via a mapped `L:` drive). **1.8.0 is on the share (2026-11-23).** **Still to do:** add the 30-minute time limit in Task Scheduler.
+   - **Updating the exe on the share:** while anyone runs WeatherFeeds from the share, the server keeps the exe open and a copy over it fails or ends up incomplete. An incomplete exe crashes at startup with `BadImageFormatException` loading `Microsoft.Web.WebView2.Core` ("incorrect format"), visible only in Event Viewer. Before copying, check `net file | findstr /i WeatherFeeds` and have those users exit; copy while the task shows Ready; then compare `certutil -hashfile … SHA256` with the build's hash. On a device that crashed, also delete `%TEMP%\.net\WeatherFeeds`.
    - **Permissions (fixed 2026-11-23):** only `MCO\WHBQ_Weather` and `MCO\WHBQ_Engineering` (both Modify) may see the folder. `MCO\WHBQ_Everyone` must **not**. The APPS share uses Access-Based Enumeration, so a group with folders-only rights `(CI)` sees folders but no files. `D:\APPS\WeatherFeeds` doesn't inherit from `D:\APPS`.
-   - **The collector silently stopped 11/18 15:10 to 11/23 09:33** because a permission change on `D:\APPS\WeatherFeeds` dropped NETWORK SERVICE's explicit Modify on `history`. It can't write its log then, so it just returns 2. Fix: `icacls "D:\APPS\WeatherFeeds\history" /grant "*S-1-5-20:(OI)(CI)M"`. **Re-check that after any permission change on the folder.** The next run backfilled 5,260 readings, since NWS keeps 7 days. The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
+   - **The collector silently stopped 11/18 15:10 to 11/23 09:33** because a permission change on `D:\APPS\WeatherFeeds` dropped NETWORK SERVICE's explicit Modify on `history`. It can't write its log then, so it just returns 2. Fix: `icacls "D:\APPS\WeatherFeeds\history" /grant "*S-1-5-20:(OI)(CI)M"`. **Re-check that after any permission change on the folder.** The next run backfilled 5,260 readings, since NWS keeps 7 days.
+   - The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
    - `schtasks /Create` said "Access is denied" until the Command Prompt was run as administrator.
    - The task then failed with Last Result **-2147024891** (0x80070005): NETWORK SERVICE also needs **RX on the program folder**, not just Modify on `history`. Now step 3 of the setup file.
    - Confirm the task's Last Result is 0 and `collector.log` ends with `Done: 14/14 stations`.
