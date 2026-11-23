@@ -2,9 +2,9 @@
 
 **Use this to pick up the work on another machine or in a new session.** The [README](README.md) covers features, setup and usage. This file covers where things stand, how the code is put together, what was learned the hard way, and what's next.
 
-- **Last updated:** 2026-11-17
+- **Last updated:** 2026-11-23
 - **Version:** 1.7.1
-- **Branch:** `main`. 1.7.1 is committed locally and not pushed yet
+- **Branch:** `main`, 1.7.1 pushed to GitHub
 - **Working tree:** clean
 
 ---
@@ -43,7 +43,9 @@ A Windows 10/11 dashboard for the **Memphis DMA**: 27 counties across TN, AR and
 ## 2. Open items and next steps
 
 ### Waiting on the user
-1. **Deploy to the station server: collector running (2026-11-17).** Server `MEMTVPFSFILE01`, folder `D:\APPS\WeatherFeeds`, task runs every 30 min as NETWORK SERVICE, and the 12:10 run returned 0. A workstation reads the share. **Still to do:** put the 1.7.1 exe on the share and add the 30-minute time limit in Task Scheduler. The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
+1. **Deploy to the station server: collector running (2026-11-17).** Server `MEMTVPFSFILE01`, folder `D:\APPS\WeatherFeeds`, task runs every 30 min as NETWORK SERVICE, and the 12:10 run returned 0. A workstation reads the share. The 1.7.1 exe is on the share. **Still to do:** add the 30-minute time limit in Task Scheduler.
+   - **Permissions (fixed 2026-11-23):** only `MCO\WHBQ_Weather` and `MCO\WHBQ_Engineering` (both Modify) may see the folder. `MCO\WHBQ_Everyone` must **not**. The APPS share uses Access-Based Enumeration, so a group with folders-only rights `(CI)` sees folders but no files. `D:\APPS\WeatherFeeds` doesn't inherit from `D:\APPS`.
+   - **The collector silently stopped 11/18 15:10 to 11/23 09:33** because a permission change on `D:\APPS\WeatherFeeds` dropped NETWORK SERVICE's explicit Modify on `history`. It can't write its log then, so it just returns 2. Fix: `icacls "D:\APPS\WeatherFeeds\history" /grant "*S-1-5-20:(OI)(CI)M"`. **Re-check that after any permission change on the folder.** The next run backfilled 5,260 readings, since NWS keeps 7 days. The user **can't run PowerShell scripts** on the server, so `deploy/SERVER-SETUP.txt` gives the same steps as plain `cmd` commands (`mkdir`, `icacls`, `schtasks`, `net share`); it's copied next to the exe by `publish.ps1`. The server folder is `D:\APPS\WeatherFeeds`. Lessons so far:
    - `schtasks /Create` said "Access is denied" until the Command Prompt was run as administrator.
    - The task then failed with Last Result **-2147024891** (0x80070005): NETWORK SERVICE also needs **RX on the program folder**, not just Modify on `history`. Now step 3 of the setup file.
    - Confirm the task's Last Result is 0 and `collector.log` ends with `Done: 14/14 stations`.
